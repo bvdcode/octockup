@@ -7,6 +7,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Octockup.Server.Controllers;
 using Octockup.Server.Database;
 using Octockup.Server.Models.Dto;
+using System.IO.Compression;
+using System.Text;
 
 namespace Octockup.Tests
 {
@@ -124,6 +126,7 @@ namespace Octockup.Tests
             Assert.That(
                 fastController.Response.ContentLength,
                 Is.EqualTo(fastController.Response.Body.Length));
+            Assert.That(storage.ReadCount, Is.EqualTo(1));
 
             SnapshotController validatedController = AsUser(
                 new SnapshotController(
@@ -140,6 +143,116 @@ namespace Octockup.Tests
                     CancellationToken.None,
                     validate: true);
             }, Throws.TypeOf<InvalidDataException>());
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public async Task DownloadSnapshotArchive_WhenChunkMetadataIsMissing_UsesRestoredSize(bool validate)
+        {
+            await using PostgresDbContext dbContext = CreateDbContext();
+            OwnedGraph graph = await SeedOwnedGraphAsync(dbContext, includeSnapshot: true);
+            byte[] content = Encoding.UTF8.GetBytes(new string('x', 534));
+            SnapshotFile file = graph.SnapshotFile!;
+            file.Path = "[Gmail]/All Mail/1108.eml";
+            file.Name = "1108.eml";
+            file.Size = 551;
+            file.Hashsum = CalculateHash(content);
+            file.ChunkHashes = [file.Hashsum];
+            await dbContext.SaveChangesAsync();
+
+            TestStorage storage = new(graph.Storage.BackupModuleId, content);
+            SnapshotController controller = AsUser(
+                new SnapshotController(
+                    new PassThroughCipher(),
+                    dbContext,
+                    NullLogger<SnapshotController>.Instance,
+                    [storage]),
+                graph.Source.UserId);
+            controller.Response.Body = new MemoryStream();
+
+            IActionResult result = await controller.DownloadSnapshotArchive(
+                graph.Snapshot!.Id,
+                CancellationToken.None,
+                validate);
+
+            Assert.That(result, Is.InstanceOf<EmptyResult>());
+            Assert.That(controller.Response.ContentLength, Is.EqualTo(controller.Response.Body.Length));
+            controller.Response.Body.Position = 0;
+            using ZipArchive archive = new(controller.Response.Body, ZipArchiveMode.Read);
+            ZipArchiveEntry? entry = archive.GetEntry(file.Path);
+            Assert.That(entry, Is.Not.Null);
+            Assert.That(entry!.Length, Is.EqualTo(content.Length));
+            await using Stream restored = await entry.OpenAsync();
+            using MemoryStream output = new();
+            await restored.CopyToAsync(output);
+            Assert.That(output.ToArray(), Is.EqualTo(content));
+            Assert.That(storage.ReadCount, Is.EqualTo(2));
+        }
+
+        [Test]
+        public async Task DownloadSnapshotFile_WhenChunkMetadataIsMissing_UsesRestoredSize()
+        {
+            await using PostgresDbContext dbContext = CreateDbContext();
+            OwnedGraph graph = await SeedOwnedGraphAsync(dbContext, includeSnapshot: true);
+            byte[] content = Encoding.UTF8.GetBytes(new string('x', 534));
+            SnapshotFile file = graph.SnapshotFile!;
+            file.Size = 551;
+            file.Hashsum = CalculateHash(content);
+            file.ChunkHashes = [file.Hashsum];
+            await dbContext.SaveChangesAsync();
+
+            TestStorage storage = new(graph.Storage.BackupModuleId, content);
+            SnapshotController controller = AsUser(
+                new SnapshotController(
+                    new PassThroughCipher(),
+                    dbContext,
+                    NullLogger<SnapshotController>.Instance,
+                    [storage]),
+                graph.Source.UserId);
+
+            IActionResult result = await controller.DownloadSnapshotFile(
+                graph.Snapshot!.Id,
+                file.Id);
+
+            Assert.That(result, Is.InstanceOf<FileStreamResult>());
+            Assert.That(controller.Response.ContentLength, Is.EqualTo(content.Length));
+            FileStreamResult download = (FileStreamResult)result;
+            await using Stream restored = download.FileStream;
+            using MemoryStream output = new();
+            await restored.CopyToAsync(output);
+            Assert.That(output.ToArray(), Is.EqualTo(content));
+            Assert.That(storage.ReadCount, Is.EqualTo(2));
+        }
+
+        [Test]
+        public async Task DownloadSnapshotArchive_WhenMissingMetadataChunkIsCorrupt_StopsBeforeResponse()
+        {
+            await using PostgresDbContext dbContext = CreateDbContext();
+            OwnedGraph graph = await SeedOwnedGraphAsync(dbContext, includeSnapshot: true);
+            byte[] expected = Encoding.UTF8.GetBytes("expected");
+            byte[] stored = Encoding.UTF8.GetBytes("changed");
+            SnapshotFile file = graph.SnapshotFile!;
+            file.Size = expected.Length;
+            file.Hashsum = CalculateHash(expected);
+            file.ChunkHashes = [file.Hashsum];
+            await dbContext.SaveChangesAsync();
+
+            TestStorage storage = new(graph.Storage.BackupModuleId, stored);
+            SnapshotController controller = AsUser(
+                new SnapshotController(
+                    new PassThroughCipher(),
+                    dbContext,
+                    NullLogger<SnapshotController>.Instance,
+                    [storage]),
+                graph.Source.UserId);
+            controller.Response.Body = new MemoryStream();
+
+            await Assert.ThatAsync(async () =>
+            {
+                await controller.DownloadSnapshotArchive(graph.Snapshot!.Id, CancellationToken.None);
+            }, Throws.TypeOf<InvalidDataException>());
+            Assert.That(controller.Response.Body.Length, Is.Zero);
+            Assert.That(controller.Response.ContentLength, Is.Null);
         }
 
         [Test]

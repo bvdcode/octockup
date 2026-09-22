@@ -82,6 +82,7 @@ namespace Octockup.Server.Controllers
                 chunksByFile = await ResolveChunksByFileAsync(
                     snapshot.Backup.StorageId,
                     snapshotFiles,
+                    storage,
                     cancellationToken);
             }
             catch (Exception ex) when (ex is FormatException or NotSupportedException)
@@ -163,6 +164,7 @@ namespace Octockup.Server.Controllers
                 .ToDictionaryAsync(x => x.Hash);
 
             List<ChunkStorageDescriptor> chunks = [];
+            MissingChunkSizeResolver sizeResolver = new(_logger, storage, _crypto);
             foreach (string chunkKey in chunkKeys)
             {
                 if (uploadedHashes.TryGetValue(chunkKey, out UploadedHash? found))
@@ -174,9 +176,13 @@ namespace Octockup.Server.Controllers
                 _logger.LogWarning("Chunk hash metadata not found in DB: {ChunkKey}", chunkKey);
                 try
                 {
-                    chunks.Add(ChunkStorageHelpers.Parse(chunkKey));
+                    ChunkStorageDescriptor chunk = ChunkStorageHelpers.Parse(chunkKey);
+                    chunks.Add(await sizeResolver.ResolveAsync(
+                        chunk,
+                        snapshotFile,
+                        HttpContext.RequestAborted));
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is FormatException or NotSupportedException)
                 {
                     _logger.LogError(ex, "Unsupported chunk key metadata: {ChunkKey}", chunkKey);
                     return BadRequest("Unsupported chunk metadata.");
@@ -328,6 +334,7 @@ namespace Octockup.Server.Controllers
         private async Task<Dictionary<Guid, IReadOnlyList<ChunkStorageDescriptor>>> ResolveChunksByFileAsync(
             Guid storageId,
             IReadOnlyList<SnapshotFile> snapshotFiles,
+            IBackupStorage storage,
             CancellationToken cancellationToken)
         {
             List<string> chunkKeys = snapshotFiles
@@ -350,6 +357,7 @@ namespace Octockup.Server.Controllers
             }
 
             Dictionary<Guid, IReadOnlyList<ChunkStorageDescriptor>> result = new Dictionary<Guid, IReadOnlyList<ChunkStorageDescriptor>>();
+            MissingChunkSizeResolver sizeResolver = new(_logger, storage, _crypto);
             foreach (SnapshotFile snapshotFile in snapshotFiles)
             {
                 List<ChunkStorageDescriptor> chunkDescriptors = new List<ChunkStorageDescriptor>();
@@ -363,7 +371,11 @@ namespace Octockup.Server.Controllers
                     }
 
                     _logger.LogWarning("Chunk hash metadata not found in DB: {ChunkKey}", chunkKey);
-                    chunkDescriptors.Add(ChunkStorageHelpers.Parse(chunkKey));
+                    ChunkStorageDescriptor chunk = ChunkStorageHelpers.Parse(chunkKey);
+                    chunkDescriptors.Add(await sizeResolver.ResolveAsync(
+                        chunk,
+                        snapshotFile,
+                        cancellationToken));
                 }
 
                 result[snapshotFile.Id] = chunkDescriptors;

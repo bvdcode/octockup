@@ -204,6 +204,7 @@ namespace Octockup.Tests
             public char PathSeparator => '/';
             public IEnumerable<string> RequiredParameters => [];
             public bool WasAccessed { get; private set; }
+            public int ReadCount { get; private set; }
 
             public void SetParameters(IReadOnlyDictionary<string, string> parameters)
             {
@@ -225,6 +226,7 @@ namespace Octockup.Tests
                 BackupFileInfo file,
                 CancellationToken cancellationToken = default)
             {
+                ReadCount++;
                 if (content == null)
                 {
                     throw new InvalidOperationException("No test content was configured.");
