@@ -79,7 +79,7 @@ jobs:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     outputs:
-      Version: ${{ steps.gitversion.outputs.SemVer }}
+      Version: ${{ steps.gitversion.outputs.MajorMinorPatch }}
       CommitsSinceVersionSource: ${{ steps.gitversion.outputs.CommitsSinceVersionSource }}
     permissions:
       contents: read
@@ -101,7 +101,7 @@ jobs:
         id: gitversion # step id used as reference for output values
       - name: Display GitVersion outputs
         run: |
-          echo "Version: ${{ steps.gitversion.outputs.SemVer }}"
+          echo "Version: ${{ steps.gitversion.outputs.MajorMinorPatch }}"
           echo "CommitsSinceVersionSource: ${{ steps.gitversion.outputs.CommitsSinceVersionSource }}"
 
       - name: login to Docker Hub
@@ -117,7 +117,7 @@ jobs:
           push: true
           tags: |
             bvdcode/${{ env.IMAGE_NAME }}:latest
-            bvdcode/${{ env.IMAGE_NAME }}:${{ steps.gitversion.outputs.semVer }}
+            bvdcode/${{ env.IMAGE_NAME }}:${{ steps.gitversion.outputs.MajorMinorPatch }}
           file: ${{ env.CONTEXT_PATH }}/${{ env.SOURCES_PATH }}/Dockerfile
 
       - name: Login to GitHub Container Registry
@@ -133,7 +133,7 @@ jobs:
           context: ${{ env.CONTEXT_PATH }}
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.gitversion.outputs.semVer }}
+            ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.gitversion.outputs.MajorMinorPatch }}
             ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
           file: ${{ env.CONTEXT_PATH }}/${{ env.SOURCES_PATH }}/Dockerfile
 
