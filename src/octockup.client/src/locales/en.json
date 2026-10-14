@@ -260,6 +260,7 @@
     "loadFailed": "Failed to load snapshots.",
     "download": "Download",
     "downloadOptions": "Download options",
+    "downloadRequested": "Download requested. Your browser will start it when the archive is ready.",
     "downloadValidated": "Download with validation",
     "copyLink": "Copy link",
     "copyValidatedLink": "Copy link with validation",

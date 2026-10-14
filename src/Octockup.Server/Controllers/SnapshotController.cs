@@ -26,6 +26,8 @@ namespace Octockup.Server.Controllers
         ILogger<SnapshotController> _logger,
         IEnumerable<IBackupProvider> _providers) : ControllerBase
     {
+        private const int ChunkMetadataBatchSize = 10_000;
+
         [Authorize]
         [HttpGet("/api/v1/snapshots/{snapshotId:guid}/download")]
         public async Task<IActionResult> DownloadSnapshotArchive(
@@ -107,7 +109,7 @@ namespace Octockup.Server.Controllers
                 snapshot.Id);
 
             Response.ContentType = "application/zip";
-            Response.ContentLength = StoredZipArchiveWriter.CalculateContentLength(entries);
+            SetDownloadHeaders(StoredZipArchiveWriter.CalculateContentLength(entries));
             Response.Headers.ContentDisposition = SnapshotArchiveFileName.CreateContentDisposition(fileName);
 
             await StoredZipArchiveWriter
@@ -208,7 +210,7 @@ namespace Octockup.Server.Controllers
                 EnableRangeProcessing = false,
             };
 
-            Response.ContentLength = restoredSize;
+            SetDownloadHeaders(restoredSize);
             return result;
         }
 
@@ -288,6 +290,13 @@ namespace Octockup.Server.Controllers
             return Ok(result);
         }
 
+        private void SetDownloadHeaders(long contentLength)
+        {
+            Response.ContentLength = contentLength;
+            Response.Headers.ContentEncoding = "identity";
+            Response.Headers.CacheControl = "private, no-store, no-transform";
+        }
+
         private StoredZipArchiveEntry CreateArchiveEntry(
             SnapshotFile snapshotFile,
             IReadOnlyList<ChunkStorageDescriptor> chunks,
@@ -343,7 +352,7 @@ namespace Octockup.Server.Controllers
                 .ToList();
 
             Dictionary<string, UploadedHash> uploadedHashes = new Dictionary<string, UploadedHash>(StringComparer.Ordinal);
-            foreach (string[] batch in chunkKeys.Chunk(500))
+            foreach (string[] batch in chunkKeys.Chunk(ChunkMetadataBatchSize))
             {
                 List<UploadedHash> found = await _dbContext.UploadedHashes
                     .AsNoTracking()

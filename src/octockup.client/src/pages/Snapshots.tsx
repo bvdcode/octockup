@@ -7,6 +7,7 @@ import {
   Typography,
   CardContent,
   CircularProgress,
+  Snackbar,
 } from "@mui/material";
 import {
   DataGrid,
@@ -46,6 +47,7 @@ export default function SnapshotsPage() {
   });
   const snapshots = snapshotsQuery.data ?? [];
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
+  const [downloadRequested, setDownloadRequested] = useState(false);
   const [deletingIds, setDeletingIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -68,6 +70,7 @@ export default function SnapshotsPage() {
   };
 
   const handleDownload = (snapshotId: string, validate: boolean) => {
+    setDownloadRequested(true);
     const link = document.createElement("a");
     link.href = createSnapshotDownloadUrl(snapshotId, validate);
     link.download = "";
@@ -197,6 +200,12 @@ export default function SnapshotsPage() {
 
   return (
     <Stack spacing={3} display="flex" flexDirection="column" flex={1}>
+      <Snackbar
+        open={downloadRequested}
+        autoHideDuration={6000}
+        onClose={() => setDownloadRequested(false)}
+        message={t("snapshots.downloadRequested")}
+      />
       {loadError && (
         <Alert severity="error">
           {getApiErrorMessage(loadError, t("snapshots.loadFailed"))}

@@ -172,6 +172,9 @@ describe("SnapshotsPage", () => {
       "http://localhost:3000/api/v1/snapshots/first-snapshot/download?access_token=access-token&validate=false",
     );
     expect(clickedDownload).toBe("");
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "snapshots.downloadRequested",
+    );
     click.mockRestore();
   });
 });
