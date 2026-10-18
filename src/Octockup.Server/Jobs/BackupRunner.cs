@@ -45,9 +45,18 @@ namespace Octockup.Server.Jobs
             ScheduleReport report = new(userId, schedule.Id, schedule.BackupId, hubContext);
             report.StartBackgroundReporting(cancellationToken);
             StorageOperationLease? storageLease = null;
+            StorageOperationLease? snapshotLease = null;
 
             try
             {
+                snapshotLease = await storageOperations.AcquireSnapshotUseAsync(schedule.BackupId, cancellationToken);
+                bool canRun = await dbContext.Schedules.AnyAsync(x => x.Id == schedule.Id &&
+                    x.Backup.DeletionRequestedAt == null &&
+                    !x.Backup.Snapshots.Any(s => s.DeletionRequestedAt != null), cancellationToken);
+                if (!canRun)
+                {
+                    return;
+                }
                 IBackupSource? sourceProvider = CreateSourceProvider(schedule);
                 if (sourceProvider is null)
                 {
@@ -135,7 +144,17 @@ namespace Octockup.Server.Jobs
                     await storageLease.DisposeAsync();
                 }
 
-                await report.DisposeAsync();
+                try
+                {
+                    await report.DisposeAsync();
+                }
+                finally
+                {
+                    if (snapshotLease is not null)
+                    {
+                        await snapshotLease.DisposeAsync();
+                    }
+                }
             }
         }
 

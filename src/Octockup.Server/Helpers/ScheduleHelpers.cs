@@ -14,6 +14,8 @@ namespace Octockup.Server.Helpers
             DateTime now = DateTime.UtcNow;
 
             List<Schedule> schedules = await _schedules
+                .Where(x => x.Backup.DeletionRequestedAt == null &&
+                    !x.Backup.Snapshots.Any(s => s.DeletionRequestedAt != null))
                 .Include(x => x.Backup)
                 .ThenInclude(b => b.Source)
                 .Include(x => x.Backup)

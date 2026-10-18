@@ -29,7 +29,7 @@ namespace Octockup.Tests
                 .Options;
             await using PostgresDbContext dbContext = new(options);
             SnapshotController controller = AsUser(
-                new SnapshotController(CreateCipher(), dbContext, NullLogger<SnapshotController>.Instance, []),
+                new SnapshotController(CreateCipher(), dbContext, NullLogger<SnapshotController>.Instance, [], new Octockup.Server.Services.StorageOperationCoordinator()),
                 graph.Source.UserId);
 
             IActionResult result = await controller.GetSnapshots(graph.Backup.Id);

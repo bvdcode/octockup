@@ -22,6 +22,12 @@ namespace Octockup.Server.Database
         [Column("files_count")]
         public int FilesCount { get; set; }
 
+        [Column("deletion_requested_at")]
+        public DateTime? DeletionRequestedAt { get; set; }
+
+        [Column("deletion_error")]
+        public string? DeletionError { get; set; }
+
         [DeleteBehavior(DeleteBehavior.Restrict)]
         public virtual Backup Backup { get; set; } = null!;
 

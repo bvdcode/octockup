@@ -13,7 +13,8 @@ namespace Octockup.Server.Handlers.Scheduling
 {
     public class ManageBackupScheduleCommandHandler(
         AppDbContext dbContext,
-        IBackupJobScheduler jobScheduler)
+        IBackupJobScheduler jobScheduler,
+        StorageOperationCoordinator operations)
         : IRequestHandler<ManageBackupScheduleCommand, Guid?>
     {
         public async Task<Guid?> Handle(
@@ -21,6 +22,9 @@ namespace Octockup.Server.Handlers.Scheduling
             CancellationToken cancellationToken)
         {
             Validate(request);
+
+            await using StorageOperationLease lease = await operations.AcquireSnapshotUseAsync(
+                request.BackupId, cancellationToken);
 
             bool backupExists = await dbContext.Backups
                 .AsNoTracking()
@@ -32,6 +36,12 @@ namespace Octockup.Server.Handlers.Scheduling
                 throw new AuthApiException(
                     StatusCodes.Status404NotFound,
                     $"Backup not found: {request.BackupId}");
+            }
+
+            if (await dbContext.Backups.AnyAsync(x => x.Id == request.BackupId &&
+                (x.DeletionRequestedAt != null || x.Snapshots.Any(s => s.DeletionRequestedAt != null)), cancellationToken))
+            {
+                throw new AuthApiException(StatusCodes.Status409Conflict, "Backup metadata deletion is pending.");
             }
 
             List<Schedule> schedules = await dbContext.Schedules

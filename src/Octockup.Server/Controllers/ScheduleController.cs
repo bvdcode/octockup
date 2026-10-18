@@ -14,6 +14,7 @@ using Octockup.Server.Models.Dto;
 using Octockup.Server.Models.Enums;
 using Octockup.Server.Models.Requests;
 using Quartz;
+using Octockup.Server.Services;
 
 namespace Octockup.Server.Controllers
 {
@@ -83,15 +84,24 @@ namespace Octockup.Server.Controllers
 
         [Authorize]
         [HttpPost("/api/v1/schedules")]
-        public async Task<IActionResult> CreateSchedule([FromBody] CreateScheduleRequest request)
+        public async Task<IActionResult> CreateSchedule(
+            [FromBody] CreateScheduleRequest request,
+            [FromServices] StorageOperationCoordinator operations)
         {
             Guid userId = User.GetUserId();
+            await using StorageOperationLease lease = await operations.AcquireSnapshotUseAsync(
+                request.BackupId, HttpContext.RequestAborted);
             Backup? backup = await _dbContext.Backups
                 .Include(b => b.Source)
                 .FirstOrDefaultAsync(b => b.Id == request.BackupId && b.Source.UserId == userId);
             if (backup == null)
             {
                 return this.ApiNotFound("Backup not found: " + request.BackupId);
+            }
+            if (backup.DeletionRequestedAt is not null || await _dbContext.Snapshots.AnyAsync(
+                x => x.BackupId == backup.Id && x.DeletionRequestedAt != null))
+            {
+                return Conflict("Backup metadata deletion is pending.");
             }
             if (request.StartAt.Kind != DateTimeKind.Utc)
             {

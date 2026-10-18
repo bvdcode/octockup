@@ -13,6 +13,8 @@ namespace Octockup.Server.Models.Dto
         public ICollection<string> IgnoredPaths { get; set; } = [];
         public bool DisableCompression { get; set; }
         public bool DisableEncryption { get; set; }
+        public DateTime? DeletionRequestedAt { get; set; }
+        public string? DeletionError { get; set; }
         public ModuleDto Source { get; set; } = null!;
         public ModuleDto Storage { get; set; } = null!;
         public ICollection<SnapshotDto> Snapshots { get; set; } = [];

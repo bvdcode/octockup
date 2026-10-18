@@ -18,7 +18,7 @@ namespace Octockup.Server.Migrations.Postgres
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.9")
+                .HasAnnotation("ProductVersion", "10.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "hstore");
@@ -103,6 +103,14 @@ namespace Octockup.Server.Migrations.Postgres
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
+
+                    b.Property<string>("DeletionError")
+                        .HasColumnType("text")
+                        .HasColumnName("deletion_error");
+
+                    b.Property<DateTime?>("DeletionRequestedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deletion_requested_at");
 
                     b.Property<bool>("DisableCompression")
                         .HasColumnType("boolean")
@@ -439,6 +447,14 @@ namespace Octockup.Server.Migrations.Postgres
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
+
+                    b.Property<string>("DeletionError")
+                        .HasColumnType("text")
+                        .HasColumnName("deletion_error");
+
+                    b.Property<DateTime?>("DeletionRequestedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deletion_requested_at");
 
                     b.Property<int>("FilesCount")
                         .HasColumnType("integer")

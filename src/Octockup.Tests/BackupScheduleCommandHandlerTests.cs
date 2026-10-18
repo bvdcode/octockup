@@ -34,7 +34,7 @@ namespace Octockup.Tests
             await using PostgresDbContext dbContext = CreateDbContext();
             Backup backup = await SeedBackupAsync(dbContext);
             RecordingBackupJobScheduler scheduler = new();
-            ManageBackupScheduleCommandHandler handler = new(dbContext, scheduler);
+            ManageBackupScheduleCommandHandler handler = new(dbContext, scheduler, new StorageOperationCoordinator());
 
             Guid? firstId = await handler.Handle(
                 new ManageBackupScheduleCommand(
@@ -88,7 +88,7 @@ namespace Octockup.Tests
             await dbContext.Schedules.AddRangeAsync(olderSchedule, newerSchedule);
             await dbContext.SaveChangesAsync();
             RecordingBackupJobScheduler scheduler = new();
-            ManageBackupScheduleCommandHandler handler = new(dbContext, scheduler);
+            ManageBackupScheduleCommandHandler handler = new(dbContext, scheduler, new StorageOperationCoordinator());
 
             Guid? scheduleId = await handler.Handle(
                 new ManageBackupScheduleCommand(
@@ -127,7 +127,7 @@ namespace Octockup.Tests
             await dbContext.Schedules.AddAsync(schedule);
             await dbContext.SaveChangesAsync();
             RecordingBackupJobScheduler scheduler = new();
-            ManageBackupScheduleCommandHandler handler = new(dbContext, scheduler);
+            ManageBackupScheduleCommandHandler handler = new(dbContext, scheduler, new StorageOperationCoordinator());
             DateTime startedAfter = DateTime.UtcNow.AddSeconds(-1);
 
             Guid? scheduleId = await handler.Handle(
@@ -165,7 +165,7 @@ namespace Octockup.Tests
             await dbContext.Schedules.AddAsync(schedule);
             await dbContext.SaveChangesAsync();
             RecordingBackupJobScheduler scheduler = new();
-            ManageBackupScheduleCommandHandler handler = new(dbContext, scheduler);
+            ManageBackupScheduleCommandHandler handler = new(dbContext, scheduler, new StorageOperationCoordinator());
 
             Guid? scheduleId = await handler.Handle(
                 new ManageBackupScheduleCommand(
@@ -191,7 +191,7 @@ namespace Octockup.Tests
             await using PostgresDbContext dbContext = CreateDbContext();
             Backup backup = await SeedBackupAsync(dbContext);
             RecordingBackupJobScheduler scheduler = new();
-            ManageBackupScheduleCommandHandler handler = new(dbContext, scheduler);
+            ManageBackupScheduleCommandHandler handler = new(dbContext, scheduler, new StorageOperationCoordinator());
 
             AuthApiException? exception = Assert.ThrowsAsync<AuthApiException>(() =>
                 handler.Handle(
@@ -216,6 +216,30 @@ namespace Octockup.Tests
                     .UseNpgsql(_database.ConnectionString)
                     .Options;
             return new PostgresDbContext(options);
+        }
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public async Task RunNow_WhenDeletionPending_DoesNotCreateSchedule(bool wholeBackup)
+        {
+            await using PostgresDbContext db = CreateDbContext();
+            Backup backup = await SeedBackupAsync(db);
+            if (wholeBackup)
+            {
+                backup.DeletionRequestedAt = DateTime.UtcNow;
+            }
+            else
+            {
+                db.Snapshots.Add(new Snapshot { BackupId = backup.Id, DeletionRequestedAt = DateTime.UtcNow });
+            }
+            await db.SaveChangesAsync();
+            RecordingBackupJobScheduler scheduler = new();
+            ManageBackupScheduleCommandHandler handler = new(db, scheduler, new StorageOperationCoordinator());
+            AuthApiException? exception = Assert.ThrowsAsync<AuthApiException>(() => handler.Handle(
+                new ManageBackupScheduleCommand(backup.Source.UserId, backup.Id, BackupScheduleAction.RunNow), default));
+            Assert.That(exception!.StatusCode, Is.EqualTo(StatusCodes.Status409Conflict));
+            Assert.That(await db.Schedules.AnyAsync(x => x.BackupId == backup.Id), Is.False);
+            Assert.That(scheduler.TriggerCount, Is.Zero);
         }
 
         private static async Task<Backup> SeedBackupAsync(AppDbContext dbContext)

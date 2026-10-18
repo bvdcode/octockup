@@ -6,6 +6,7 @@ using EasyExtensions;
 using EasyExtensions.AspNetCore.Extensions;
 using EasyExtensions.Models.Enums;
 using Mapster;
+using EasyExtensions.Mediator;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -14,17 +15,20 @@ using Octockup.Server.Abstractions;
 using Octockup.Server.Archives;
 using Octockup.Server.Database;
 using Octockup.Server.Helpers;
+using Octockup.Server.Handlers.Deletion;
 using Octockup.Server.Models.Dto;
 using Octockup.Server.Streams;
+using Octockup.Server.Services;
 
 namespace Octockup.Server.Controllers
 {
     [ApiController]
-    public class SnapshotController(
+    public partial class SnapshotController(
         IStreamCipher _crypto,
         AppDbContext _dbContext,
         ILogger<SnapshotController> _logger,
-        IEnumerable<IBackupProvider> _providers) : ControllerBase
+        IEnumerable<IBackupProvider> _providers,
+        StorageOperationCoordinator operations) : ControllerBase
     {
         private const int ChunkMetadataBatchSize = 10_000;
 
@@ -36,6 +40,11 @@ namespace Octockup.Server.Controllers
             [FromQuery] bool validate = false)
         {
             Guid userId = User.GetUserId();
+            await using StorageOperationLease? lease = await AcquireReadAsync(snapshotId, userId, cancellationToken);
+            if (lease is null)
+            {
+                return NotFound();
+            }
 
             Snapshot? snapshot = await _dbContext.Snapshots
                 .AsNoTracking()
@@ -127,6 +136,12 @@ namespace Octockup.Server.Controllers
             [FromQuery] bool validate = false)
         {
             Guid userId = User.GetUserId();
+            StorageOperationLease? lease = await AcquireReadAsync(snapshotId, userId, HttpContext.RequestAborted);
+            if (lease is null)
+            {
+                return NotFound();
+            }
+            Response.OnCompleted(() => lease.DisposeAsync().AsTask());
             SnapshotFile? snapshotFile = await _dbContext.SnapshotFiles
                 .AsNoTracking()
                 .Include(sf => sf.Snapshot)
@@ -216,46 +231,35 @@ namespace Octockup.Server.Controllers
 
         [Authorize]
         [HttpGet("/api/v1/snapshots/{snapshotId:guid}/files")]
-        public IActionResult GetSnapshot([FromRoute] Guid snapshotId)
+        public async Task<IActionResult> GetSnapshot([FromRoute] Guid snapshotId)
         {
             Guid userId = User.GetUserId();
-            bool isOwned = _dbContext.Snapshots
-                .AsNoTracking()
-                .Any(s => s.Id == snapshotId && s.Backup.Source.UserId == userId);
-            if (!isOwned)
+            await using StorageOperationLease? lease = await AcquireReadAsync(snapshotId, userId, HttpContext.RequestAborted);
+            if (lease is null)
             {
                 return NotFound();
             }
 
-            List<SnapshotFileDto> snapshotFiles = _dbContext.SnapshotFiles
+            List<SnapshotFileDto> snapshotFiles = await _dbContext.SnapshotFiles
                 .AsNoTracking()
                 .Where(sf => sf.SnapshotId == snapshotId)
                 .OrderBy(sf => sf.Path)
                 .ThenBy(sf => sf.Name)
-                .ToList()
-                .Adapt<List<SnapshotFileDto>>();
+                .ProjectToType<SnapshotFileDto>()
+                .ToListAsync(HttpContext.RequestAborted);
             return Ok(snapshotFiles);
         }
 
         [Authorize]
         [HttpDelete("/api/v1/snapshots/{snapshotId:guid}")]
-        public async Task<IActionResult> DeleteSnapshot([FromRoute] Guid snapshotId)
+        public async Task<IActionResult> DeleteSnapshot(
+            [FromRoute] Guid snapshotId,
+            [FromServices] IMediator mediator,
+            CancellationToken cancellationToken = default)
         {
-            Guid userId = User.GetUserId();
-            Snapshot? snapshot = await _dbContext.Snapshots
-                .FirstOrDefaultAsync(s =>
-                    s.Id == snapshotId &&
-                    s.Backup.Source.UserId == userId);
-            if (snapshot == null)
-            {
-                return NotFound();
-            }
-            await _dbContext.SnapshotFiles
-                .Where(sf => sf.SnapshotId == snapshotId)
-                .ExecuteDeleteAsync();
-            _dbContext.Snapshots.Remove(snapshot);
-            await _dbContext.SaveChangesAsync();
-            return NoContent();
+            bool found = await mediator.Send(
+                new RequestSnapshotDeletionCommand(User.GetUserId(), snapshotId), cancellationToken);
+            return found ? Accepted() : NotFound();
         }
 
         [Authorize]
@@ -277,7 +281,18 @@ namespace Octockup.Server.Controllers
                 .AsNoTracking()
                 .Where(s => s.BackupId == backupId)
                 .OrderBy(s => s.CreatedAt)
-                .ProjectToType<SnapshotDto>()
+                .Select(s => new SnapshotDto
+                {
+                    Id = s.Id,
+                    CreatedAt = s.CreatedAt,
+                    UpdatedAt = s.UpdatedAt,
+                    BackupId = s.BackupId,
+                    CompletedAt = s.CompletedAt,
+                    FilesCount = s.FilesCount,
+                    TotalSize = s.TotalSize,
+                    DeletionRequestedAt = s.DeletionRequestedAt ?? s.Backup.DeletionRequestedAt,
+                    DeletionError = s.DeletionError ?? s.Backup.DeletionError,
+                })
                 .ToListAsync(cancellationToken);
             return Ok(snapshots);
         }

@@ -3,6 +3,8 @@
 
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using EasyExtensions.Mediator;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Octockup.Server.Controllers;
 using Octockup.Server.Database;
@@ -25,7 +27,7 @@ namespace Octockup.Tests
                     CreateCipher(),
                     dbContext,
                     NullLogger<SnapshotController>.Instance,
-                    [storage]),
+                    [storage], new Octockup.Server.Services.StorageOperationCoordinator()),
                 Guid.NewGuid());
 
             IActionResult result = await controller.DownloadSnapshotFile(
@@ -47,7 +49,7 @@ namespace Octockup.Tests
                     CreateCipher(),
                     dbContext,
                     NullLogger<SnapshotController>.Instance,
-                    [storage]),
+                    [storage], new Octockup.Server.Services.StorageOperationCoordinator()),
                 Guid.NewGuid());
 
             IActionResult result = await controller.DownloadSnapshotArchive(
@@ -72,7 +74,7 @@ namespace Octockup.Tests
                     CreateCipher(),
                     dbContext,
                     NullLogger<SnapshotController>.Instance,
-                    [storage]),
+                    [storage], new Octockup.Server.Services.StorageOperationCoordinator()),
                 graph.Source.UserId);
 
             IActionResult fastAction = await controller.DownloadSnapshotFile(
@@ -113,7 +115,7 @@ namespace Octockup.Tests
                     CreateCipher(),
                     dbContext,
                     NullLogger<SnapshotController>.Instance,
-                    [storage]),
+                    [storage], new Octockup.Server.Services.StorageOperationCoordinator()),
                 graph.Source.UserId);
             fastController.Response.Body = new MemoryStream();
 
@@ -133,7 +135,7 @@ namespace Octockup.Tests
                     CreateCipher(),
                     dbContext,
                     NullLogger<SnapshotController>.Instance,
-                    [storage]),
+                    [storage], new Octockup.Server.Services.StorageOperationCoordinator()),
                 graph.Source.UserId);
             validatedController.Response.Body = new MemoryStream();
             await Assert.ThatAsync(async () =>
@@ -166,7 +168,7 @@ namespace Octockup.Tests
                     new PassThroughCipher(),
                     dbContext,
                     NullLogger<SnapshotController>.Instance,
-                    [storage]),
+                    [storage], new Octockup.Server.Services.StorageOperationCoordinator()),
                 graph.Source.UserId);
             controller.Response.Body = new MemoryStream();
 
@@ -207,7 +209,7 @@ namespace Octockup.Tests
                     new PassThroughCipher(),
                     dbContext,
                     NullLogger<SnapshotController>.Instance,
-                    [storage]),
+                    [storage], new Octockup.Server.Services.StorageOperationCoordinator()),
                 graph.Source.UserId);
 
             IActionResult result = await controller.DownloadSnapshotFile(
@@ -243,7 +245,7 @@ namespace Octockup.Tests
                     new PassThroughCipher(),
                     dbContext,
                     NullLogger<SnapshotController>.Instance,
-                    [storage]),
+                    [storage], new Octockup.Server.Services.StorageOperationCoordinator()),
                 graph.Source.UserId);
             controller.Response.Body = new MemoryStream();
 
@@ -265,10 +267,10 @@ namespace Octockup.Tests
                     CreateCipher(),
                     dbContext,
                     NullLogger<SnapshotController>.Instance,
-                    []),
+                    [], new Octockup.Server.Services.StorageOperationCoordinator()),
                 Guid.NewGuid());
 
-            IActionResult result = controller.GetSnapshot(graph.Snapshot!.Id);
+            IActionResult result = await controller.GetSnapshot(graph.Snapshot!.Id);
 
             AssertNotFound(result);
         }
@@ -283,10 +285,10 @@ namespace Octockup.Tests
                     CreateCipher(),
                     dbContext,
                     NullLogger<SnapshotController>.Instance,
-                    []),
+                    [], new Octockup.Server.Services.StorageOperationCoordinator()),
                 graph.Source.UserId);
 
-            IActionResult filesResult = controller.GetSnapshot(graph.Snapshot!.Id);
+            IActionResult filesResult = await controller.GetSnapshot(graph.Snapshot!.Id);
             IActionResult snapshotsResult = await controller.GetSnapshots(graph.Backup.Id);
 
             Assert.Multiple(() =>
@@ -315,10 +317,11 @@ namespace Octockup.Tests
                     CreateCipher(),
                     dbContext,
                     NullLogger<SnapshotController>.Instance,
-                    []),
+                    [], new Octockup.Server.Services.StorageOperationCoordinator()),
                 Guid.NewGuid());
 
-            IActionResult result = await controller.DeleteSnapshot(graph.Snapshot!.Id);
+            using ServiceProvider services = CreateDeletionServices(dbContext);
+            IActionResult result = await controller.DeleteSnapshot(graph.Snapshot!.Id, services.GetRequiredService<IMediator>());
 
             AssertNotFound(result);
             dbContext.ChangeTracker.Clear();
@@ -336,7 +339,7 @@ namespace Octockup.Tests
                     CreateCipher(),
                     dbContext,
                     NullLogger<SnapshotController>.Instance,
-                    []),
+                    [], new Octockup.Server.Services.StorageOperationCoordinator()),
                 Guid.NewGuid());
 
             IActionResult result = await controller.GetSnapshots(graph.Backup.Id);

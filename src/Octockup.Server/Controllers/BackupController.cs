@@ -6,13 +6,14 @@ using EasyExtensions.Abstractions;
 using EasyExtensions.AspNetCore.Extensions;
 using EasyExtensions.Quartz.Extensions;
 using Mapster;
+using EasyExtensions.Mediator;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 using Octockup.Server.Database;
 using Octockup.Server.Helpers;
 using Octockup.Server.Jobs;
+using Octockup.Server.Handlers.Deletion;
 using Octockup.Server.Models.Dto;
 using Octockup.Server.Models.Enums;
 using Octockup.Server.Models.Requests;
@@ -161,7 +162,6 @@ namespace Octockup.Server.Controllers
                 return this.ApiNotFound("Storage module not found for backup: " + backupId);
             }
             backup.IgnoredPaths = ignoredPaths;
-            _dbContext.Backups.Update(backup);
             await _dbContext.SaveChangesAsync();
             return Ok(new { message = "Ignored paths updated successfully." });
         }
@@ -196,7 +196,6 @@ namespace Octockup.Server.Controllers
                 return this.ApiBadRequest("Tag already exists: " + request.NewTag);
             }
             backup.Tag = request.NewTag;
-            _dbContext.Backups.Update(backup);
             await _dbContext.SaveChangesAsync();
             return Ok(new { message = "Backup renamed successfully." });
         }
@@ -256,53 +255,12 @@ namespace Octockup.Server.Controllers
         [HttpDelete("/api/v1/backups/{backupId:guid}")]
         public async Task<IActionResult> DeleteBackup(
             [FromRoute] Guid backupId,
+            [FromServices] IMediator mediator,
             CancellationToken cancellationToken = default)
         {
-            Guid userId = User.GetUserId();
-            Backup? backup = await _dbContext.Backups
-                .FirstOrDefaultAsync(
-                    x => x.Id == backupId && x.Source.UserId == userId,
-                    cancellationToken);
-            if (backup == null)
-            {
-                return this.ApiNotFound("Backup not found: " + backupId);
-            }
-
-            List<Guid> scheduleIds = await _dbContext.Schedules
-                .Where(x => x.BackupId == backupId)
-                .Select(x => x.Id)
-                .ToListAsync(cancellationToken);
-            List<Guid> snapshotIds = await _dbContext.Snapshots
-                .Where(x => x.BackupId == backupId)
-                .Select(x => x.Id)
-                .ToListAsync(cancellationToken);
-
-            foreach (Guid scheduleId in scheduleIds)
-            {
-                ExecuteBackupJob.StopRunningBackup(scheduleId);
-            }
-
-            await using IDbContextTransaction transaction = await _dbContext.Database
-                .BeginTransactionAsync(cancellationToken);
-
-            if (snapshotIds.Count > 0)
-            {
-                await _dbContext.SnapshotFiles
-                    .Where(x => snapshotIds.Contains(x.SnapshotId))
-                    .ExecuteDeleteAsync(cancellationToken);
-            }
-            await _dbContext.Snapshots
-                .Where(x => x.BackupId == backupId)
-                .ExecuteDeleteAsync(cancellationToken);
-            await _dbContext.Schedules
-                .Where(x => x.BackupId == backupId)
-                .ExecuteDeleteAsync(cancellationToken);
-            await _dbContext.Backups
-                .Where(x => x.Id == backupId)
-                .ExecuteDeleteAsync(cancellationToken);
-
-            await transaction.CommitAsync(cancellationToken);
-            return Ok(new { message = "Backup deleted successfully." });
+            bool found = await mediator.Send(
+                new RequestBackupDeletionCommand(User.GetUserId(), backupId), cancellationToken);
+            return found ? Accepted() : NotFound();
         }
 
         [Authorize]

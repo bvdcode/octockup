@@ -36,7 +36,7 @@ namespace Octockup.Tests
             {
                 SnapshotController controller = AsUser(
                     new SnapshotController(new PassThroughCipher(), dbContext,
-                        NullLogger<SnapshotController>.Instance, [storage]),
+                        NullLogger<SnapshotController>.Instance, [storage], new Octockup.Server.Services.StorageOperationCoordinator()),
                     graph.Source.UserId);
                 context.User = controller.User;
                 controller.ControllerContext.HttpContext = context;
@@ -103,7 +103,7 @@ namespace Octockup.Tests
             SnapshotController controller = AsUser(
                 new SnapshotController(
                     new PassThroughCipher(), dbContext,
-                    NullLogger<SnapshotController>.Instance, [storage]),
+                    NullLogger<SnapshotController>.Instance, [storage], new Octockup.Server.Services.StorageOperationCoordinator()),
                 graph.Source.UserId);
             using MemoryStream archive = new();
             controller.Response.Body = archive;

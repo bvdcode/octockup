@@ -18,6 +18,8 @@ using Octockup.Server.Models.Dto;
 using Octockup.Server.Models.Enums;
 using Octockup.Server.Models.Requests;
 using Quartz;
+using EasyExtensions.Mediator;
+using Microsoft.Extensions.DependencyInjection;
 using System.Security.Claims;
 using System.Security.Cryptography;
 
@@ -172,7 +174,8 @@ namespace Octockup.Tests
                     NullLogger<BackupController>.Instance),
                 Guid.NewGuid());
 
-            IActionResult result = await controller.DeleteBackup(graph.Backup.Id);
+            using ServiceProvider services = CreateDeletionServices(dbContext);
+            IActionResult result = await controller.DeleteBackup(graph.Backup.Id, services.GetRequiredService<IMediator>());
 
             AssertNotFound(result);
             dbContext.ChangeTracker.Clear();
@@ -241,9 +244,12 @@ namespace Octockup.Tests
                     NullLogger<BackupController>.Instance),
                 graph.Source.UserId);
 
-            IActionResult result = await controller.DeleteBackup(graph.Backup.Id);
+            using ServiceProvider services = CreateDeletionServices(dbContext);
+            IActionResult result = await controller.DeleteBackup(graph.Backup.Id, services.GetRequiredService<IMediator>());
 
-            Assert.That(result, Is.InstanceOf<OkObjectResult>());
+            Assert.That(result, Is.InstanceOf<AcceptedResult>());
+            Assert.That(await dbContext.SnapshotFiles.AnyAsync(x => x.SnapshotId == graph.Snapshot!.Id), Is.True);
+            await ProcessDeletionsAsync(dbContext, services);
             dbContext.ChangeTracker.Clear();
             bool backupExists = await dbContext.Backups.AnyAsync(x => x.Id == graph.Backup.Id);
             bool scheduleExists = await dbContext.Schedules.AnyAsync(x => x.Id == graph.Schedule!.Id);

@@ -29,6 +29,12 @@ namespace Octockup.Server.Database
         [Column("disable_encryption")]
         public bool DisableEncryption { get; set; }
 
+        [Column("deletion_requested_at")]
+        public DateTime? DeletionRequestedAt { get; set; }
+
+        [Column("deletion_error")]
+        public string? DeletionError { get; set; }
+
         [DeleteBehavior(DeleteBehavior.Restrict)]
         public virtual Module Source { get; set; } = null!;
 
