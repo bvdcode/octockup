@@ -260,34 +260,26 @@ namespace Octockup.Server.Controllers
 
         [Authorize]
         [HttpGet("/api/v1/snapshots")]
-        public IActionResult GetSnapshots([FromQuery] Guid backupId)
+        public async Task<IActionResult> GetSnapshots(
+            [FromQuery] Guid backupId,
+            CancellationToken cancellationToken = default)
         {
             Guid userId = User.GetUserId();
-            bool isOwned = _dbContext.Backups
+            bool isOwned = await _dbContext.Backups
                 .AsNoTracking()
-                .Any(b => b.Id == backupId && b.Source.UserId == userId);
+                .AnyAsync(b => b.Id == backupId && b.Source.UserId == userId, cancellationToken);
             if (!isOwned)
             {
                 return NotFound();
             }
 
-            List<Snapshot> snapshots = _dbContext.Snapshots
+            List<SnapshotDto> snapshots = await _dbContext.Snapshots
+                .AsNoTracking()
                 .Where(s => s.BackupId == backupId)
                 .OrderBy(s => s.CreatedAt)
-                .ToList();
-
-            List<SnapshotDto> result = [];
-            foreach (Snapshot snapshot in snapshots)
-            {
-                SnapshotDto dto = snapshot.Adapt<SnapshotDto>();
-                dto.FilesCount = _dbContext.SnapshotFiles
-                    .Count(sf => sf.SnapshotId == snapshot.Id);
-                dto.TotalSize = _dbContext.SnapshotFiles
-                    .Where(sf => sf.SnapshotId == snapshot.Id)
-                    .Sum(sf => (long?)sf.Size) ?? 0;
-                result.Add(dto);
-            }
-            return Ok(result);
+                .ProjectToType<SnapshotDto>()
+                .ToListAsync(cancellationToken);
+            return Ok(snapshots);
         }
 
         private void SetDownloadHeaders(long contentLength)

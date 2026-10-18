@@ -287,7 +287,7 @@ namespace Octockup.Tests
                 graph.Source.UserId);
 
             IActionResult filesResult = controller.GetSnapshot(graph.Snapshot!.Id);
-            IActionResult snapshotsResult = controller.GetSnapshots(graph.Backup.Id);
+            IActionResult snapshotsResult = await controller.GetSnapshots(graph.Backup.Id);
 
             Assert.Multiple(() =>
             {
@@ -339,7 +339,7 @@ namespace Octockup.Tests
                     []),
                 Guid.NewGuid());
 
-            IActionResult result = controller.GetSnapshots(graph.Backup.Id);
+            IActionResult result = await controller.GetSnapshots(graph.Backup.Id);
 
             AssertNotFound(result);
         }
