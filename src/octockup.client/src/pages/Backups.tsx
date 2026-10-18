@@ -31,6 +31,7 @@ import {
 import { usePendingIds } from "../hooks/usePendingIds";
 import { useBackupScheduleReports } from "../hooks/useBackupScheduleReports";
 import { getApiErrorMessage } from "../utils/apiError";
+import { deletionRefreshInterval, useDeletionUpdates } from "../hooks/useDeletionUpdates";
 
 export default function BackupsPage() {
   const { t } = useTranslation();
@@ -40,6 +41,7 @@ export default function BackupsPage() {
   const schedulesApi = useSchedulesApi();
   const queryClient = useQueryClient();
   const { connection, isConnected } = useSignalR("/api/v1/event-hub");
+  useDeletionUpdates(connection);
   const deleting = usePendingIds();
   const starting = usePendingIds();
   const canceling = usePendingIds();
@@ -48,6 +50,9 @@ export default function BackupsPage() {
   const backupsQuery = useQuery({
     queryKey: queryKeys.backups,
     queryFn: () => backupsApi.list(),
+    refetchInterval: (query) => query.state.data?.some((backup) =>
+      backup.deletionRequestedAt || backup.snapshots.some((snapshot) => snapshot.deletionRequestedAt),
+    ) ? deletionRefreshInterval : false,
   });
   const backups = useMemo(
     () => backupsQuery.data ?? [],
@@ -189,8 +194,11 @@ export default function BackupsPage() {
     await executeAction(backupId, deleting.run, async () => {
       await backupsApi.delete(backupId);
       updateBackups((previous) =>
-        previous.filter((backup) => backup.id !== backupId),
+        previous.map((backup) => backup.id === backupId
+          ? { ...backup, deletionRequestedAt: backup.deletionRequestedAt ?? new Date().toISOString(), deletionError: null }
+          : backup),
       );
+      await reloadBackups();
       await queryClient.invalidateQueries({ queryKey: queryKeys.schedules });
     });
   };

@@ -49,6 +49,8 @@ export function BackupActions({
   onDelete,
 }: BackupActionsProps) {
   const { t } = useTranslation();
+  const deletionPending = Boolean(backup.deletionRequestedAt);
+  const metadataBusy = deletionPending || backup.snapshots.some((snapshot) => snapshot.deletionRequestedAt);
 
   const reportForBackup = scheduleReports.get(backup.id);
   const isRunningFromReport = reportForBackup?.status === BackupStatus.Running;
@@ -85,20 +87,22 @@ export function BackupActions({
         <IconButton
           size="small"
           aria-label={t("backups.ignoredPaths")}
-          disabled={isSavingIgnoredPaths}
+          color="info"
+          disabled={isSavingIgnoredPaths || metadataBusy}
           onClick={(e) => {
             e.stopPropagation();
             onEditIgnoredPaths();
           }}
         >
-          <FilterAlt color="info" />
+          <FilterAlt />
         </IconButton>
       </Tooltip>
       {isRunning ? (
         <IconButton
           size="small"
           aria-label={t("backups.stop")}
-          disabled={isCanceling || !runningScheduleId}
+          color="error"
+          disabled={isCanceling || !runningScheduleId || deletionPending}
           onClick={async (e) => {
             e.stopPropagation();
             if (runningScheduleId) {
@@ -109,12 +113,12 @@ export function BackupActions({
           {isCanceling ? (
             <CircularProgress size={20} />
           ) : (
-            <StopCircle color="error" />
+            <StopCircle />
           )}
         </IconButton>
       ) : (
         <BackupRunMenu
-          disabled={status === "running"}
+          disabled={status === "running" || metadataBusy}
           intervalMinutes={intervalMinutes}
           loading={isStarting || isScheduling}
           onRunNow={onRunOnce}
@@ -125,7 +129,8 @@ export function BackupActions({
       <IconButton
         size="small"
         aria-label={t("common.delete")}
-        disabled={isDeleting}
+        color="primary"
+        disabled={isDeleting || (deletionPending && !backup.deletionError)}
         onClick={async (e) => {
           e.stopPropagation();
           const result = await confirm({
@@ -143,7 +148,7 @@ export function BackupActions({
         {isDeleting ? (
           <CircularProgress size={20} color="inherit" />
         ) : (
-          <DeleteOutline color="primary" />
+          <DeleteOutline />
         )}
       </IconButton>
     </Box>

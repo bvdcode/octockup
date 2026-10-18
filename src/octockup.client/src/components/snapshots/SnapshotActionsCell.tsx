@@ -54,7 +54,7 @@ export default function SnapshotActionsCell({
       onClick={(event) => event.stopPropagation()}
     >
       <Collapse
-        in={expanded}
+        in={expanded && !downloadDisabled}
         orientation="horizontal"
         timeout="auto"
         unmountOnExit

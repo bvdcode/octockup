@@ -1,4 +1,10 @@
 {
+  "deletion": {
+    "pending": "Deleting…",
+    "help": "Deletion continues in the background, including after a restart. Active operations finish first. Unreferenced chunks are removed by Storage Cleanup.",
+    "failed": "Deletion failed",
+    "failedHelp": "Deletion failed. It will retry automatically in 5 minutes. Click Delete to retry now."
+  },
   "common": {
     "ok": "OK",
     "back": "Back",
@@ -192,7 +198,7 @@
     "newBackup": "New Backup",
     "noBackups": "No backups yet.",
     "deleteTitle": "Delete backup",
-    "deleteText": "This action is permanent!",
+    "deleteText": "The backup, its schedules and snapshots will be deleted in the background. This cannot be undone. Storage Cleanup will reclaim unreferenced chunks later.",
     "deleteTooltip": "Delete backup",
     "runOnce": "Run once",
     "stop": "Stop backup",
@@ -267,7 +273,7 @@
     "linkCopied": "Snapshot download link copied.",
     "validatedLinkCopied": "Snapshot download link with validation copied.",
     "deleteTitle": "Delete snapshot?",
-    "deleteText": "The snapshot and its file list will be deleted. Unused stored chunks can be reclaimed by storage cleanup.",
+    "deleteText": "The snapshot and its file list will be deleted in the background after active operations finish. Other snapshots are preserved. Storage Cleanup will reclaim unreferenced chunks later.",
     "deleteTooltip": "Delete snapshot",
     "deleteFailed": "Could not delete the snapshot."
   },

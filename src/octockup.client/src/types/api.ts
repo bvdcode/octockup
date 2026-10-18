@@ -37,6 +37,8 @@ export interface CreateModuleRequest {
   parameters: Record<string, string>;
 }
 export interface BackupItem {
+  deletionRequestedAt?: string | null;
+  deletionError?: string | null;
   id: string;
   tag: string;
   sourceId: string;
@@ -68,6 +70,8 @@ export interface ScheduleBackupItem {
 }
 
 export interface SnapshotDto {
+  deletionRequestedAt?: string | null;
+  deletionError?: string | null;
   id: string;
   backupId: string;
   completedAt?: string | null;

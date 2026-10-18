@@ -62,7 +62,9 @@ export function BackupCard({
         position: "relative",
         minHeight: 80,
         borderLeft: `3px solid ${
-          status === "running"
+          backup.deletionRequestedAt
+            ? theme.palette.divider
+            : status === "running"
             ? theme.palette.info.main
             : status === "failed"
             ? theme.palette.error.main
@@ -137,10 +139,10 @@ export function BackupCard({
               gap={1}
               minWidth={0}
             >
-              <EditableModuleTag
+              {backup.deletionRequestedAt ? <Typography variant="subtitle2">{backup.tag}</Typography> : <EditableModuleTag
                 tag={backup.tag}
                 onRename={(newTag) => onRename(backup.id, newTag)}
-              />
+              />}
               <Divider
                 orientation="vertical"
                 flexItem
@@ -157,7 +159,7 @@ export function BackupCard({
             />
           </Box>
           <BackupMetadata backup={backup} />
-          {report && <BackupProgress report={report} />}
+          {report && !backup.deletionRequestedAt && <BackupProgress report={report} />}
         </Box>
         <Divider
           orientation="vertical"

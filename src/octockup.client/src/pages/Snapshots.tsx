@@ -8,6 +8,8 @@ import {
   CardContent,
   CircularProgress,
   Snackbar,
+  Chip,
+  Tooltip,
 } from "@mui/material";
 import {
   DataGrid,
@@ -27,6 +29,8 @@ import SnapshotActionsCell from "../components/snapshots/SnapshotActionsCell";
 import { getApiErrorMessage } from "../utils/apiError";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../query/queryKeys";
+import { useSignalR } from "../hooks/useSignalR";
+import { deletionRefreshInterval, useDeletionUpdates } from "../hooks/useDeletionUpdates";
 
 export default function SnapshotsPage() {
   const { t } = useTranslation();
@@ -34,6 +38,8 @@ export default function SnapshotsPage() {
   const { backupId } = useParams<{ backupId: string }>();
   const snapshotsApi = useSnapshotsApi();
   const queryClient = useQueryClient();
+  const { connection } = useSignalR("/api/v1/event-hub");
+  useDeletionUpdates(connection);
   const accessToken = useAuthStore((s) => s.accessToken);
   const snapshotsQuery = useQuery({
     queryKey: queryKeys.snapshots(backupId ?? ""),
@@ -44,6 +50,8 @@ export default function SnapshotsPage() {
       return snapshotsApi.listByBackup(backupId);
     },
     enabled: Boolean(backupId),
+    refetchInterval: (query) => query.state.data?.some((snapshot) => snapshot.deletionRequestedAt)
+      ? deletionRefreshInterval : false,
   });
   const snapshots = snapshotsQuery.data ?? [];
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
@@ -112,8 +120,11 @@ export default function SnapshotsPage() {
       queryClient.setQueryData<SnapshotDto[]>(
         queryKeys.snapshots(backupId ?? ""),
         (current) =>
-          (current ?? []).filter((item) => item.id !== snapshot.id),
+          (current ?? []).map((item) => item.id === snapshot.id
+            ? { ...item, deletionRequestedAt: item.deletionRequestedAt ?? new Date().toISOString(), deletionError: null }
+            : item),
       );
+      await queryClient.invalidateQueries({ queryKey: queryKeys.snapshots(backupId ?? "") });
       await queryClient.invalidateQueries({ queryKey: queryKeys.backups });
     } catch (caughtError) {
       if (caughtError instanceof Error) {
@@ -138,8 +149,14 @@ export default function SnapshotsPage() {
       minWidth: 200,
       valueGetter: (value: string | null) =>
         value ? new Date(value).getTime() : 0,
-      renderCell: (params) =>
-        params.row.completedAt
+      renderCell: (params) => params.row.deletionRequestedAt ? (
+        <Tooltip title={t(params.row.deletionError ? "deletion.failedHelp" : "deletion.help")}>
+          <Chip size="small" variant="outlined"
+            color={params.row.deletionError ? "error" : "default"}
+            sx={params.row.deletionError ? { bgcolor: "error.dark", color: "common.white" } : undefined}
+            label={t(params.row.deletionError ? "deletion.failed" : "deletion.pending")} />
+        </Tooltip>
+      ) : params.row.completedAt
           ? new Date(params.row.completedAt).toLocaleString()
           : t("snapshots.never"),
     },
@@ -172,8 +189,8 @@ export default function SnapshotsPage() {
       cellClassName: "snapshot-actions-cell",
       renderCell: (params) => (
         <SnapshotActionsCell
-          downloadDisabled={!accessToken || !params.row.completedAt}
-          deleting={deletingIds.has(params.row.id)}
+          downloadDisabled={!accessToken || !params.row.completedAt || Boolean(params.row.deletionRequestedAt)}
+          deleting={deletingIds.has(params.row.id) || Boolean(params.row.deletionRequestedAt && !params.row.deletionError)}
           onDownload={(validate) => handleDownload(params.row.id, validate)}
           onCopyLink={(validate) =>
             handleCopyDownloadLink(params.row.id, validate)
@@ -184,7 +201,10 @@ export default function SnapshotsPage() {
     },
   ];
 
-  const handleRowClick = (params: GridRowParams) => {
+  const handleRowClick = (params: GridRowParams<SnapshotDto>) => {
+    if (params.row.deletionRequestedAt) {
+      return;
+    }
     navigate(`/backups/${backupId}/snapshots/${params.row.id}/files`);
   };
 

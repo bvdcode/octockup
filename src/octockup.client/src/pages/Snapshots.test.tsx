@@ -36,6 +36,10 @@ vi.mock("../api/snapshotsApi", () => ({
   useSnapshotsApi: () => api,
 }));
 
+vi.mock("../hooks/useSignalR", () => ({
+  useSignalR: () => ({ connection: null, isConnected: false }),
+}));
+
 vi.mock("@mui/x-data-grid", () => ({
   DataGrid: ({ columns, rows }: TestDataGridProps) => {
     const actionsColumn = columns.find((column) => column.field === "actions");
@@ -129,21 +133,43 @@ describe("SnapshotsPage", () => {
       expect(deleteButtons[1]).toBeDisabled();
     });
 
+    api.listByBackup.mockResolvedValue([
+      { id: "first-snapshot", backupId: "backup-id", filesCount: 10, totalSize: 100, deletionRequestedAt: "2026-10-17T00:00:00Z" },
+      { id: "second-snapshot", backupId: "backup-id", filesCount: 20, totalSize: 200, deletionRequestedAt: "2026-10-17T00:00:00Z" },
+    ]);
     firstRequest.resolve();
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "snapshots.deleteTooltip" }),
-      ).toBeDisabled();
+      expect(screen.getAllByRole("button", { name: "snapshots.deleteTooltip" })).toHaveLength(2);
+      expect(deleteButtons[0]).toBeDisabled();
+      expect(deleteButtons[1]).toBeDisabled();
     });
 
     secondRequest.resolve();
 
     await waitFor(() => {
-      expect(
-        screen.queryByRole("button", { name: "snapshots.deleteTooltip" }),
-      ).not.toBeInTheDocument();
+      expect(screen.getAllByRole("button", { name: "snapshots.deleteTooltip" })).toHaveLength(2);
+      expect(deleteButtons[0]).toBeDisabled();
+      expect(deleteButtons[1]).toBeDisabled();
     });
+  });
+
+  it("restores deletion state after reopening and prevents downloads", async () => {
+    api.listByBackup.mockResolvedValue([
+      { id: "pending", backupId: "backup-id", completedAt: "2026-10-16T00:00:00Z", filesCount: 10, totalSize: 100, deletionRequestedAt: "2026-10-17T00:00:00Z" },
+    ]);
+    renderWithQueryClient(<SnapshotsPage />, createTestQueryClient());
+    expect(await screen.findByRole("button", { name: "snapshots.deleteTooltip" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "snapshots.downloadOptions" })).toBeDisabled();
+  });
+
+  it("offers retry after a persisted deletion error without enabling downloads", async () => {
+    api.listByBackup.mockResolvedValue([
+      { id: "pending", backupId: "backup-id", completedAt: "2026-10-16T00:00:00Z", filesCount: 10, totalSize: 100, deletionRequestedAt: "2026-10-17T00:00:00Z", deletionError: "TimeoutException" },
+    ]);
+    renderWithQueryClient(<SnapshotsPage />, createTestQueryClient());
+    expect(await screen.findByRole("button", { name: "snapshots.deleteTooltip" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "snapshots.downloadOptions" })).toBeDisabled();
   });
 
   it("starts a direct browser download without opening a new window", async () => {

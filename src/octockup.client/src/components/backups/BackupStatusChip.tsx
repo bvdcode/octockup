@@ -17,6 +17,15 @@ export function BackupStatusChip({
   scheduleReports,
 }: BackupStatusChipProps) {
   const { t } = useTranslation();
+  if (backup.deletionRequestedAt) {
+    return (
+      <Tooltip title={t(backup.deletionError ? "deletion.failedHelp" : "deletion.help")}>
+        <Chip size="small" variant="outlined" color={backup.deletionError ? "error" : "default"}
+          sx={backup.deletionError ? { bgcolor: "error.dark", color: "common.white" } : undefined}
+          label={t(backup.deletionError ? "deletion.failed" : "deletion.pending")} />
+      </Tooltip>
+    );
+  }
   const status = getBackupOverallStatus(
     backup,
     scheduleToBackupMap,
