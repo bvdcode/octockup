@@ -208,6 +208,7 @@ namespace Octockup.Server.Controllers
             Guid userId = User.GetUserId();
             return await _dbContext.Backups
                 .AsNoTracking()
+                .AsSplitQuery()
                 .Include(x => x.Source)
                 .Include(x => x.Storage)
                 .Include(x => x.Snapshots)
