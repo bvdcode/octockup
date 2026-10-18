@@ -107,6 +107,50 @@ namespace Octockup.Tests
                 Throws.TypeOf<ArgumentOutOfRangeException>());
         }
 
+        [TestCase(false)]
+        [TestCase(true)]
+        public async Task GetBatches_WhenCanceledDuringListing_StopsWithoutWaitingForSource(bool yieldFirst)
+        {
+            using ManualResetEventSlim sourceBlocked = new();
+            using ManualResetEventSlim releaseSource = new();
+            using CancellationTokenSource cancellation = new();
+            using LazyLoader<int> loader = new(
+                EnumerateBlocked(sourceBlocked, releaseSource, yieldFirst),
+                BatchSize);
+            Task consume = Task.Run(() => loader
+                .GetBatches(BatchSize, TimeSpan.FromMinutes(1), cancellation.Token)
+                .ToArray());
+
+            try
+            {
+                Assert.That(sourceBlocked.Wait(TimeSpan.FromSeconds(5)), Is.True);
+                await cancellation.CancelAsync();
+                await Assert.ThatAsync(
+                    async () => await consume.WaitAsync(TimeSpan.FromSeconds(2)),
+                    Throws.InstanceOf<OperationCanceledException>());
+            }
+            finally
+            {
+                releaseSource.Set();
+                Assert.That(
+                    SpinWait.SpinUntil(() => loader.IsEnumerationCompleted, TimeSpan.FromSeconds(5)),
+                    Is.True);
+            }
+        }
+
+        private static IEnumerable<int> EnumerateBlocked(
+            ManualResetEventSlim sourceBlocked,
+            ManualResetEventSlim releaseSource,
+            bool yieldFirst)
+        {
+            if (yieldFirst)
+            {
+                yield return 1;
+            }
+            sourceBlocked.Set();
+            releaseSource.Wait();
+        }
+
         private static IEnumerable<int> Enumerate(
             ManualResetEventSlim allItemsYielded,
             ManualResetEventSlim allowCompletion)

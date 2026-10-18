@@ -47,18 +47,21 @@ namespace Octockup.Server.Collections
             return GetEnumerator();
         }
 
-        public IEnumerable<T[]> GetBatches(int maxBatchSize, TimeSpan flushAfterIdle)
+        public IEnumerable<T[]> GetBatches(
+            int maxBatchSize,
+            TimeSpan flushAfterIdle,
+            CancellationToken cancellationToken = default)
         {
             ArgumentOutOfRangeException.ThrowIfLessThan(maxBatchSize, 1);
             ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(flushAfterIdle, TimeSpan.Zero);
 
             StartBackgroundLoadingIfNeeded();
 
-            while (TryTakeNext(out T first))
+            while (TryTakeNext(out T first, cancellationToken: cancellationToken))
             {
                 List<T> batch = [first];
                 while (batch.Count < maxBatchSize &&
-                    TryTakeNext(out T item, flushAfterIdle))
+                    TryTakeNext(out T item, flushAfterIdle, cancellationToken))
                 {
                     batch.Add(item);
                 }
@@ -67,12 +70,16 @@ namespace Octockup.Server.Collections
             }
         }
 
-        private bool TryTakeNext(out T item, TimeSpan? waitTimeout = null)
+        private bool TryTakeNext(
+            out T item,
+            TimeSpan? waitTimeout = null,
+            CancellationToken cancellationToken = default)
         {
             T? loadedItem;
-            bool hasItem = waitTimeout.HasValue
-                ? _buffer.TryTake(out loadedItem, waitTimeout.Value)
-                : _buffer.TryTake(out loadedItem, Timeout.Infinite);
+            int timeout = waitTimeout.HasValue
+                ? (int)waitTimeout.Value.TotalMilliseconds
+                : Timeout.Infinite;
+            bool hasItem = _buffer.TryTake(out loadedItem, timeout, cancellationToken);
 
             if (hasItem)
             {

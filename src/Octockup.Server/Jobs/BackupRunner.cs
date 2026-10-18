@@ -207,7 +207,8 @@ namespace Octockup.Server.Jobs
             cancellationToken.ThrowIfCancellationRequested();
             foreach (BackupFileInfo[] filesBatch in loader.GetBatches(
                 PreviousFilesBatchSize,
-                PreviousFilesBatchIdleTimeout))
+                PreviousFilesBatchIdleTimeout,
+                cancellationToken))
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 Dictionary<string, SnapshotFile> previousFiles = await GetPreviousFilesAsync(
