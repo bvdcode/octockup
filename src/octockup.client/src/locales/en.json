@@ -1,4 +1,32 @@
 {
+  "storageBrowser": {
+    "title": "Storage Browser",
+    "description": "Open a backup using a target and its master key.",
+    "target": "Target",
+    "masterKey": "Backup master key",
+    "unlock": "Open backups",
+    "unlockFailed": "The key is incorrect or the catalog could not be opened.",
+    "loadFailed": "Could not load the storage catalog.",
+    "found": "Backup catalog found. Enter its master key to browse snapshots.",
+    "notFound": "No portable catalog found in this target.",
+    "publish": "Publish backup catalogs",
+    "publishHelp": "Publish catalogs for completed backups from this instance. File data is not uploaded again. Backups with a separate key publish new snapshots automatically.",
+    "publishFailed": "Could not start catalog publication.",
+    "snapshot": "Backup and snapshot",
+    "close": "Lock and exit",
+    "up": "Up",
+    "folder": "Download folder",
+    "download": "Download",
+    "downloadItem": "Download {{name}}",
+    "empty": "This folder is empty.",
+    "sessionHelp": "Read-only session. The key is kept in server memory for up to 30 minutes. Lock and exit when finished.",
+    "publication": {
+      "queued": "Publication queued",
+      "running": "Publishing: {{completed}} / {{total}} backups",
+      "completed": "Catalogs published",
+      "failed": "Publication failed. Check server logs and retry."
+    }
+  },
   "deletion": {
     "pending": "Deleting…",
     "help": "Deletion continues in the background, including after a restart. Active operations finish first. Unreferenced chunks are removed by Storage Cleanup.",
@@ -291,6 +319,8 @@
     "loadFailed": "Failed to load snapshot files."
   },
   "backupWizard": {
+    "masterKey": "Separate master key (optional)",
+    "masterKeyHelp": "Leave empty to use the server key. Save a separate key to open this backup on another instance.",
     "title": "Create Backup",
     "loadFailed": "Failed to load backup modules.",
     "source": "Source",

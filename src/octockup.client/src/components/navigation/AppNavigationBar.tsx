@@ -12,6 +12,7 @@ import { isValidElement } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { ReactKitProps } from "@bvdcode/react-kit";
 import ProfileUserMenu from "./ProfileUserMenu";
+import { useTranslation } from "react-i18next";
 
 export default function AppNavigationBar({
   appName,
@@ -19,6 +20,7 @@ export default function AppNavigationBar({
   pages,
 }: ReactKitProps) {
   const location = useLocation();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const displayedPages = pages.filter(
     (page) => page.name !== undefined || isValidElement(page.icon),
@@ -74,7 +76,7 @@ export default function AppNavigationBar({
           >
             {displayedPages.map((page) => {
               const icon = isValidElement(page.icon) ? page.icon : undefined;
-              const label = page.name ?? page.route;
+              const label = t(page.name ?? page.route);
               return (
                 <Tab
                   key={page.route}

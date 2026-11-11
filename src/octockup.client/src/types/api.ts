@@ -80,6 +80,7 @@ export interface SnapshotDto {
 }
 
 export interface CreateBackupRequest {
+  masterKey?: string;
   sourceId: string;
   storageId: string;
   tag: string;

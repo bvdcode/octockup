@@ -7,6 +7,7 @@ import {
   CleaningServices,
   GitHub,
   Settings,
+  FolderOpen,
 } from "@mui/icons-material";
 import { useEffect, useRef } from "react";
 import * as locales from "./locales";
@@ -30,6 +31,7 @@ import SnapshotFilesPage from "./pages/SnapshotFiles";
 import SettingsPage from "./pages/Settings";
 import StorageCleanupPage from "./pages/StorageCleanup";
 import ProfilePage from "./pages/Profile";
+import StorageBrowserPage from "./pages/StorageBrowser";
 import { Fab } from "@mui/material";
 import LoginPage from "./pages/Login";
 import type { CurrentUser } from "./types/auth";
@@ -150,6 +152,12 @@ function App() {
           {
             route: "/profile",
             component: <ProfilePage />,
+          },
+          {
+            icon: <FolderOpen />,
+            name: "storageBrowser.title",
+            route: "/storage-browser",
+            component: <StorageBrowserPage />,
           },
           {
             icon: <Settings />,

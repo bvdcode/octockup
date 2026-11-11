@@ -31,6 +31,16 @@ Octockup is an autobackup application that ships its backend and frontend in one
 
 ---
 
+## Portable backups
+
+Create a backup with an optional separate master key to share it without sharing the server key. Existing backups keep their current key. Chunks encrypted with a separate key are isolated from other backups; deduplication continues within that backup.
+
+Completed snapshots of backups with a separate key publish an encrypted, paged catalog into the target automatically. Wait for catalog publication before handing over the target. Existing backups can publish their catalogs manually from **Storage Browser** without uploading file contents again.
+
+On another instance, configure the target, open **Storage Browser**, and enter the backup key. No source database import is required. The read-only viewer supports snapshot selection, folder browsing, file downloads, and streaming folder ZIP downloads. File catalogs are paged in groups of 500 entries instead of loading a complete snapshot into memory.
+
+Viewing keys are retained in server memory for a session lasting up to 30 minutes. **Lock and exit** closes access sooner. Keep the separate backup key: the receiving instance's server key cannot replace it. Use a dedicated target or prefix for a shared backup, and give the recipient read-only storage credentials when possible.
+
 ## Installation
 
 Dockerhub: [Link](https://hub.docker.com/r/bvdcode/octockup)

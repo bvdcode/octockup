@@ -55,6 +55,7 @@ export default function BackupWizard() {
   const [disableCompression, setDisableCompression] =
     useState<boolean>(false);
   const [disableEncryption, setDisableEncryption] = useState<boolean>(false);
+  const [masterKey, setMasterKey] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -110,7 +111,7 @@ export default function BackupWizard() {
   }, [tag, autoTag, userEditedTag]);
 
   const canCreate = useMemo(
-    () => !!sourceId && !!storageId && !!displayTag,
+    () => !!sourceId && !!storageId && !!displayTag.trim(),
     [sourceId, storageId, displayTag],
   );
   const ignoredPathsPreset = useMemo(() => {
@@ -170,6 +171,11 @@ export default function BackupWizard() {
               />
             </Box>
             <Stack spacing={2}>
+              <TextField label={t("backupWizard.masterKey")} type="password"
+                sx={{ "& .MuiInputLabel-root.Mui-focused": { color: "text.primary" } }}
+                autoComplete="new-password" value={masterKey} fullWidth disabled={disableEncryption}
+                helperText={t("backupWizard.masterKeyHelp")}
+                onChange={(event) => setMasterKey(event.target.value)} />
               <TextField
                 label={t("backupWizard.tag")}
                 value={displayTag}
@@ -193,6 +199,7 @@ export default function BackupWizard() {
                 </Box>
                 {ignoredPathsPreset.length > 0 && (
                   <Button
+                    color="inherit"
                     size="small"
                     variant="outlined"
                     onClick={() =>
@@ -217,6 +224,7 @@ export default function BackupWizard() {
                   control={
                     <Checkbox
                       checked={disableEncryption}
+                      disabled={Boolean(masterKey.trim())}
                       onChange={(e) => setDisableEncryption(e.target.checked)}
                     />
                   }
@@ -229,7 +237,7 @@ export default function BackupWizard() {
       </Card>
       <Divider />
       <Stack direction="row" spacing={2}>
-        <Button variant="outlined" onClick={() => navigate(-1)}>
+        <Button color="inherit" variant="outlined" onClick={() => navigate(-1)}>
           {t("common.back")}
         </Button>
         <Button
@@ -241,12 +249,14 @@ export default function BackupWizard() {
               const payload: CreateBackupRequest = {
                 sourceId,
                 storageId,
-                tag: displayTag,
+                tag: displayTag.trim(),
                 ignoredPaths: ignoredPathsInput
                   .split(/\r?\n/)
-                  .filter((x) => x.trim() !== ""),
+                  .map((value) => value.trim())
+                  .filter((value) => value !== ""),
                 disableCompression,
                 disableEncryption,
+                masterKey: masterKey.trim() || undefined,
               };
               await backupsApi.create(payload);
               await queryClient.invalidateQueries({
