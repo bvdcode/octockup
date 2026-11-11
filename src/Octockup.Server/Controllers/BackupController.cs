@@ -3,6 +3,7 @@
 
 using EasyExtensions;
 using EasyExtensions.Abstractions;
+using EasyExtensions.Extensions;
 using EasyExtensions.AspNetCore.Extensions;
 using EasyExtensions.Quartz.Extensions;
 using Mapster;
@@ -237,6 +238,10 @@ namespace Octockup.Server.Controllers
             {
                 return this.ApiBadRequest("Tag already exists: " + request.Tag);
             }
+            if (request.MasterKey?.Length > 4096 || (request.DisableEncryption && !string.IsNullOrWhiteSpace(request.MasterKey)))
+            {
+                return this.ApiBadRequest("A separate master key requires encryption and must not exceed 4096 characters.");
+            }
             Backup backup = new()
             {
                 Tag = request.Tag,
@@ -244,7 +249,9 @@ namespace Octockup.Server.Controllers
                 StorageId = storage.Id,
                 IgnoredPaths = request.IgnoredPaths ?? [],
                 DisableCompression = request.DisableCompression,
-                DisableEncryption = request.DisableEncryption
+                DisableEncryption = request.DisableEncryption,
+                EncryptedMasterKey = string.IsNullOrWhiteSpace(request.MasterKey) ? null :
+                    Convert.ToBase64String(_streamCipher.EncryptString(request.MasterKey.Trim())),
             };
             await _dbContext.Backups.AddAsync(backup);
             await _dbContext.SaveChangesAsync();

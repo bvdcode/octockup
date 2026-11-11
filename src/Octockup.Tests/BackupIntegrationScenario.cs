@@ -3,6 +3,7 @@
 
 using EasyExtensions.Abstractions;
 using EasyExtensions.Crypto;
+using EasyExtensions.Extensions;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -15,6 +16,7 @@ using Octockup.Server.Hubs;
 using Octockup.Server.Jobs;
 using Octockup.Server.Models.Enums;
 using Octockup.Server.Modules;
+using Octockup.Server.Portable;
 using Octockup.Server.Services;
 using Octockup.Server.Streams;
 using System.Security.Cryptography;
@@ -241,6 +243,37 @@ namespace Octockup.Tests
             return Path.Combine(_storageDirectory, relativePath);
         }
 
+        public string StorageMount => _storageMount;
+        public Guid StorageModuleId => _storageModuleId;
+        public AppDbContext Database => _dbContext;
+        public IStreamCipher Cipher => _crypto;
+        public IServiceProvider Services => _serviceProvider;
+
+        public async Task SetMasterKeyAsync(string masterKey)
+        {
+            Backup backup = await _dbContext.Backups.SingleAsync(x => x.Id == _backupId);
+            backup.EncryptedMasterKey = Convert.ToBase64String(_crypto.EncryptString(masterKey));
+            await _dbContext.SaveChangesAsync();
+            _dbContext.ChangeTracker.Clear();
+        }
+
+        public async Task CreateBackupWithKeyAsync(string masterKey)
+        {
+            Backup previous = await _dbContext.Backups.AsNoTracking().SingleAsync(x => x.Id == _backupId);
+            Backup backup = new()
+            {
+                SourceId = previous.SourceId,
+                StorageId = previous.StorageId,
+                Tag = "backup-" + Guid.NewGuid().ToString("N"),
+                IgnoredPaths = [],
+                EncryptedMasterKey = Convert.ToBase64String(_crypto.EncryptString(masterKey)),
+            };
+            _dbContext.Add(backup);
+            await _dbContext.SaveChangesAsync();
+            _backupId = backup.Id;
+            _dbContext.ChangeTracker.Clear();
+        }
+
         public async Task<byte[]> RestoreFileAsync(
             Guid snapshotId,
             string relativePath,
@@ -265,7 +298,8 @@ namespace Octockup.Tests
                 storage,
                 chunks,
                 snapshotFile,
-                _crypto,
+                BackupKeyCipher.Resolve(await _dbContext.Snapshots.Where(x => x.Id == snapshotId)
+                    .Select(x => x.Backup).SingleAsync(cancellationToken), _crypto),
                 cancellationToken);
             await using MemoryStream restored = new();
             await stream.CopyToAsync(restored, cancellationToken);

@@ -10,6 +10,7 @@ using Octockup.Server.Database;
 using Octockup.Server.Hubs;
 using Octockup.Server.Jobs;
 using Octockup.Server.Services;
+using Octockup.Server.Portable;
 
 namespace Octockup.Server.Handlers.Deletion
 {
@@ -17,7 +18,8 @@ namespace Octockup.Server.Handlers.Deletion
         AppDbContext dbContext,
         StorageOperationCoordinator operations,
         IHubContext<EventHub> hub,
-        ILogger<ProcessPendingDeletionsCommandHandler> logger)
+        ILogger<ProcessPendingDeletionsCommandHandler> logger,
+        PortableCatalogPublisher publisher)
         : IRequestHandler<ProcessPendingDeletionsCommand, int>
     {
         private const int FileBatchSize = 10_000;
@@ -106,6 +108,9 @@ namespace Octockup.Server.Handlers.Deletion
 
         private async Task DeleteSnapshotAsync(Guid snapshotId, CancellationToken cancellationToken)
         {
+            Guid storageId = await dbContext.Snapshots.Where(x => x.Id == snapshotId)
+                .Select(x => x.Backup.StorageId).SingleAsync(cancellationToken);
+            await publisher.RemoveAsync(storageId, snapshotId, cancellationToken);
             string? cursor = null;
             while (true)
             {

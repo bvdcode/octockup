@@ -19,6 +19,7 @@ using Octockup.Server.Handlers.Deletion;
 using Octockup.Server.Models.Dto;
 using Octockup.Server.Streams;
 using Octockup.Server.Services;
+using Octockup.Server.Portable;
 
 namespace Octockup.Server.Controllers
 {
@@ -94,6 +95,7 @@ namespace Octockup.Server.Controllers
                     snapshot.Backup.StorageId,
                     snapshotFiles,
                     storage,
+                    BackupKeyCipher.Resolve(snapshot.Backup, _crypto),
                     cancellationToken);
             }
             catch (Exception ex) when (ex is FormatException or NotSupportedException)
@@ -107,6 +109,7 @@ namespace Octockup.Server.Controllers
                     snapshotFile,
                     chunksByFile[snapshotFile.Id],
                     storage,
+                    BackupKeyCipher.Resolve(snapshot.Backup, _crypto),
                     cancellationToken,
                     validate))
                 .ToList();
@@ -181,7 +184,8 @@ namespace Octockup.Server.Controllers
                 .ToDictionaryAsync(x => x.Hash);
 
             List<ChunkStorageDescriptor> chunks = [];
-            MissingChunkSizeResolver sizeResolver = new(_logger, storage, _crypto);
+            MissingChunkSizeResolver sizeResolver = new(_logger, storage,
+                BackupKeyCipher.Resolve(snapshotFile.Snapshot.Backup, _crypto));
             foreach (string chunkKey in chunkKeys)
             {
                 if (uploadedHashes.TryGetValue(chunkKey, out UploadedHash? found))
@@ -212,7 +216,7 @@ namespace Octockup.Server.Controllers
                 storage,
                 chunks,
                 snapshotFile,
-                _crypto,
+                BackupKeyCipher.Resolve(snapshotFile.Snapshot.Backup, _crypto),
                 HttpContext.RequestAborted,
                 restoredSize,
                 validate
@@ -308,6 +312,7 @@ namespace Octockup.Server.Controllers
             SnapshotFile snapshotFile,
             IReadOnlyList<ChunkStorageDescriptor> chunks,
             IBackupStorage storage,
+            IStreamCipher chunkCipher,
             CancellationToken requestCancellationToken,
             bool validate)
         {
@@ -326,7 +331,7 @@ namespace Octockup.Server.Controllers
                         storage,
                         chunks,
                         snapshotFile,
-                        _crypto,
+                        chunkCipher,
                         requestCancellationToken,
                         GetRestoredFileSize(snapshotFile, chunks),
                         validate);
@@ -351,6 +356,7 @@ namespace Octockup.Server.Controllers
             Guid storageId,
             IReadOnlyList<SnapshotFile> snapshotFiles,
             IBackupStorage storage,
+            IStreamCipher chunkCipher,
             CancellationToken cancellationToken)
         {
             List<string> chunkKeys = snapshotFiles
@@ -373,7 +379,7 @@ namespace Octockup.Server.Controllers
             }
 
             Dictionary<Guid, IReadOnlyList<ChunkStorageDescriptor>> result = new Dictionary<Guid, IReadOnlyList<ChunkStorageDescriptor>>();
-            MissingChunkSizeResolver sizeResolver = new(_logger, storage, _crypto);
+            MissingChunkSizeResolver sizeResolver = new(_logger, storage, chunkCipher);
             foreach (SnapshotFile snapshotFile in snapshotFiles)
             {
                 List<ChunkStorageDescriptor> chunkDescriptors = new List<ChunkStorageDescriptor>();

@@ -29,6 +29,9 @@ namespace Octockup.Server.Database
         [Column("disable_encryption")]
         public bool DisableEncryption { get; set; }
 
+        [Column("encrypted_master_key")]
+        public string? EncryptedMasterKey { get; set; }
+
         [Column("deletion_requested_at")]
         public DateTime? DeletionRequestedAt { get; set; }
 

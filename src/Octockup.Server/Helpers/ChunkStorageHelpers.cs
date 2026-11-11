@@ -33,6 +33,15 @@ namespace Octockup.Server.Helpers
             CompressionAlgorithm? legacyCompressionAlgorithm = null,
             long? originalSize = null)
         {
+            if (key.StartsWith("v3-", StringComparison.Ordinal))
+            {
+                if (key.Length < 37 || !Guid.TryParseExact(key.Substring(3, 32), "N", out _) || key[35] != '-' ||
+                    key.AsSpan(36).StartsWith("v3-", StringComparison.Ordinal))
+                {
+                    throw new FormatException("Invalid scoped chunk key.");
+                }
+                return Parse(key[36..], legacyCompressionAlgorithm, originalSize) with { Key = key };
+            }
             if (!key.StartsWith(Version + "-", StringComparison.Ordinal))
             {
                 return new ChunkStorageDescriptor(
@@ -60,6 +69,11 @@ namespace Octockup.Server.Helpers
         public static string GetStoragePath(string key, char pathSeparator)
         {
             ChunkStorageDescriptor descriptor = Parse(key);
+            if (key.StartsWith("v3-", StringComparison.Ordinal))
+            {
+                return string.Join(pathSeparator, ".octockup", "data", key.Substring(3, 32),
+                    GetStoragePath(key[36..], pathSeparator));
+            }
             if (descriptor.Key == descriptor.ContentHash)
             {
                 return ScheduleHelpers.SplitPlainHash(descriptor.ContentHash, pathSeparator);

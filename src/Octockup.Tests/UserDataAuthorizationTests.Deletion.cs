@@ -10,6 +10,7 @@ using Octockup.Server.Database;
 using Octockup.Server.Handlers.Deletion;
 using Octockup.Server.Hubs;
 using Octockup.Server.Services;
+using Octockup.Server.Portable;
 
 namespace Octockup.Tests
 {
@@ -23,6 +24,11 @@ namespace Octockup.Tests
             services.AddMediator(config => config.RegisterServicesFromAssemblyContaining<RequestBackupDeletionCommand>());
             services.AddSingleton(dbContext);
             services.AddSingleton(operations ?? new StorageOperationCoordinator());
+            services.AddSingleton(CreateCipher());
+            services.AddSingleton<Octockup.Server.Abstractions.IBackupProvider>(new TestStorage("test-storage"));
+            services.AddSingleton<PortableStorageFactory>();
+            services.AddSingleton<PortablePublicationStore>();
+            services.AddSingleton<PortableCatalogPublisher>();
             return services.BuildServiceProvider();
         }
 
@@ -31,7 +37,8 @@ namespace Octockup.Tests
             ProcessPendingDeletionsCommandHandler handler = new(dbContext,
                 services.GetRequiredService<StorageOperationCoordinator>(),
                 services.GetRequiredService<IHubContext<EventHub>>(),
-                NullLogger<ProcessPendingDeletionsCommandHandler>.Instance);
+                NullLogger<ProcessPendingDeletionsCommandHandler>.Instance,
+                services.GetRequiredService<PortableCatalogPublisher>());
             return handler.Handle(new ProcessPendingDeletionsCommand(), token);
         }
 

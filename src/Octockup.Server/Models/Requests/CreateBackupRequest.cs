@@ -11,5 +11,6 @@ namespace Octockup.Server.Models.Requests
         public ICollection<string>? IgnoredPaths { get; set; }
         public bool DisableCompression { get; set; }
         public bool DisableEncryption { get; set; }
+        public string? MasterKey { get; set; }
     }
 }

@@ -6,7 +6,7 @@ using System.Text;
 
 namespace Octockup.Server.Archives
 {
-    public static class StoredZipArchiveWriter
+    public static partial class StoredZipArchiveWriter
     {
         private const ushort VersionNeededZip64 = 45;
         private const ushort GeneralPurposeFlags = 0x0808; // data descriptor + UTF-8

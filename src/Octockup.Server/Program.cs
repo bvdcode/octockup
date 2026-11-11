@@ -16,6 +16,7 @@ using Octockup.Server.Jobs;
 using Octockup.Server.Middleware;
 using Octockup.Server.Modules;
 using Octockup.Server.Services;
+using Octockup.Server.Portable;
 
 namespace Octockup.Server
 {
@@ -50,6 +51,13 @@ namespace Octockup.Server
                 .AddScoped<IBackupJobScheduler, BackupJobScheduler>()
                 .AddSingleton<StorageOperationCoordinator>()
                 .AddScoped<StorageCleanupProcessor>()
+                .AddScoped<PortableStorageFactory>()
+                .AddScoped<PortableCatalogPublisher>()
+                .AddScoped<PortableCatalogReader>()
+                .AddScoped<PortableSessionAccess>()
+                .AddScoped<PortableDownload>()
+                .AddSingleton<PortableSessionStore>()
+                .AddSingleton<PortablePublicationStore>()
                 .AddPbkdf2PasswordHashService()
                 .AddOctockupAuthentication()
                 .AddCpuUsageService()

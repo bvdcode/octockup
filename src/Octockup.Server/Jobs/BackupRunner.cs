@@ -17,6 +17,7 @@ using Octockup.Server.Services;
 using System.Buffers;
 using System.Diagnostics;
 using System.Security.Cryptography;
+using Octockup.Server.Portable;
 
 namespace Octockup.Server.Jobs
 {
@@ -30,6 +31,8 @@ namespace Octockup.Server.Jobs
         StorageOperationCoordinator storageOperations)
     {
         private const int ChunkSize = 8 * 1024 * 1024;
+        private IStreamCipher _chunkCipher = null!;
+        private string? _keyScope;
         private const int PreviousFilesBatchSize = 4_096;
         private const int PrefetchedFileBatchCount = 2;
         private readonly List<UploadedHash> _pendingUploadedHashes = [];
@@ -58,6 +61,8 @@ namespace Octockup.Server.Jobs
                     return;
                 }
                 IBackupSource? sourceProvider = CreateSourceProvider(schedule);
+                _chunkCipher = BackupKeyCipher.Resolve(schedule.Backup, crypto);
+                _keyScope = schedule.Backup.EncryptedMasterKey is null ? null : schedule.Backup.Id.ToString("N");
                 if (sourceProvider is null)
                 {
                     await report.SendAsync(0, schedule.ErrorMessage ?? "Source provider not found.", cancellationToken: cancellationToken);

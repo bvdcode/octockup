@@ -120,6 +120,10 @@ namespace Octockup.Server.Migrations.Postgres
                         .HasColumnType("boolean")
                         .HasColumnName("disable_encryption");
 
+                    b.Property<string>("EncryptedMasterKey")
+                        .HasColumnType("text")
+                        .HasColumnName("encrypted_master_key");
+
                     b.PrimitiveCollection<string[]>("IgnoredPaths")
                         .IsRequired()
                         .HasColumnType("text[]")

@@ -55,6 +55,10 @@ namespace Octockup.Server.Jobs
                         : CompressionHelpers.Algorithm;
                     bool encryptChunk = !schedule.Backup.DisableEncryption;
                     string chunkKey = ChunkStorageHelpers.CreateKey(contentHash, algorithm, encryptChunk);
+                    if (_keyScope is not null)
+                    {
+                        chunkKey = $"v3-{_keyScope}-{chunkKey}";
+                    }
                     ChunkKeyIdentity chunkIdentity = ChunkKeyIdentity.Parse(chunkKey);
                     string shortHash = contentHash[^8..];
 
@@ -230,7 +234,7 @@ namespace Octockup.Server.Jobs
             }
 
             using MemoryStream encryptedStream = new();
-            await crypto.EncryptAsync(source, encryptedStream, ct: cancellationToken);
+            await _chunkCipher.EncryptAsync(source, encryptedStream, ct: cancellationToken);
             encryptedStream.Seek(0, SeekOrigin.Begin);
             long encryptedSize = encryptedStream.Length;
             await storage.UploadAsync(path, encryptedStream, cancellationToken);

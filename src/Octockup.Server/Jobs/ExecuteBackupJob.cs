@@ -3,6 +3,7 @@
 
 using EasyExtensions.Abstractions;
 using EasyExtensions.Quartz.Attributes;
+using EasyExtensions.Quartz.Extensions;
 using Microsoft.AspNetCore.SignalR;
 using Octockup.Server.Abstractions;
 using Octockup.Server.Database;
@@ -83,6 +84,11 @@ namespace Octockup.Server.Jobs
                     scope.ServiceProvider.GetRequiredService<StorageOperationCoordinator>());
 
                 await runner.RunAsync(next, scheduleCts.Token);
+                if (next.Status == Octockup.Server.Models.Enums.ScheduleStatus.Completed && next.Backup.EncryptedMasterKey is not null)
+                {
+                    await scope.ServiceProvider.GetRequiredService<ISchedulerFactory>()
+                        .TriggerJobAsync<PublishPortableCatalogJob>();
+                }
                 _logger.LogInformation("Backup job for schedule {ScheduleId} completed", next.Id);
             }
             finally

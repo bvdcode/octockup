@@ -170,6 +170,9 @@ namespace Octockup.Server.Jobs
                 .AsNoTracking()
                 .Where(x => x.ModuleId == storageId)
                 .Select(x => x.Hash);
+            query = _keyScope is null
+                ? query.Where(x => !x.StartsWith("v3-"))
+                : query.Where(x => x.StartsWith("v3-" + _keyScope + "-"));
             int hashCount = await query.CountAsync(cancellationToken);
             HashSet<ChunkKeyIdentity> uploadedChunks = new(hashCount);
             await foreach (string hash in query

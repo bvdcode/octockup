@@ -19,6 +19,11 @@ namespace Octockup.Server.Helpers
         public static ChunkKeyIdentity Parse(string storageKey)
         {
             ArgumentException.ThrowIfNullOrEmpty(storageKey);
+            if (storageKey.StartsWith("v3-", StringComparison.Ordinal))
+            {
+                ChunkStorageHelpers.Parse(storageKey);
+                storageKey = storageKey[36..];
+            }
 
             ChunkStorageDescriptor descriptor = ChunkStorageHelpers.Parse(storageKey);
             ReadOnlySpan<char> contentHash = descriptor.ContentHash.AsSpan();
