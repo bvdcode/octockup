@@ -13,6 +13,7 @@ namespace Octockup.Server.Portable
         public const int Version = 1;
         public const int MaximumSnapshots = 10_000;
         public static string BackupCatalog(Guid backupId) => $"{Root}/catalog-{backupId:N}";
+        public static string PendingGeneration(Guid generation) => $"{Root}/{generation:N}/pending";
         public const int MaximumMetadataBytes = 64 * 1024 * 1024;
         public static string DirectoryId(string path) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(path)));
         public static string DirectoryPath(Guid generation, string path) => $"{Root}/{generation:N}/{DirectoryId(path)}";

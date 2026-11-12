@@ -9,7 +9,7 @@ using Octockup.Server.Helpers;
 using Octockup.Server.Services;
 namespace Octockup.Server.Portable
 {
-    public class PortableCatalogPublisher(AppDbContext db, IStreamCipher cipher, PortableStorageFactory factory,
+    public partial class PortableCatalogPublisher(AppDbContext db, IStreamCipher cipher, PortableStorageFactory factory,
         PortablePublicationStore publications, StorageOperationCoordinator operations)
     {
         public async Task PublishAsync(Guid userId, Guid moduleId, CancellationToken ct, bool customKeysOnly = false)
@@ -43,6 +43,7 @@ namespace Octockup.Server.Portable
                         PortableSnapshot published = await PublishSnapshotAsync(storage, backupCipher, snapshot, ct);
                         catalog.Snapshots.Add(published);
                         await PortableMetadata.WriteAsync(storage, backupCipher, PortableFormat.BackupCatalog(backupId), catalog, ct);
+                        await DeleteObjectAsync(storage, PortableFormat.PendingGeneration(snapshot.Id), ct);
                     }
                     PortableIndex index = await storage.ExistsAsync(PortableFormat.CatalogPath, ct) == true
                         ? await PortableMetadata.ReadIndexAsync(storage, ct) : new(PortableFormat.Version, []);
@@ -59,56 +60,6 @@ namespace Octockup.Server.Portable
                 }
             }
             publications.Set(userId, moduleId, new("completed", completed, backups.Count));
-        }
-
-        public async Task RemoveAsync(Guid moduleId, Guid snapshotId, CancellationToken ct)
-        {
-            Module? module = await db.Modules.AsNoTracking().SingleOrDefaultAsync(x => x.Id == moduleId, ct);
-            if (module is null)
-            {
-                return;
-            }
-            IBackupStorage storage = await factory.OpenAsync(module.UserId, moduleId, ct);
-            if (await storage.ExistsAsync(PortableFormat.CatalogPath, ct) != true)
-            {
-                return;
-            }
-            SemaphoreSlim gate = publications.GetLock(moduleId);
-            await gate.WaitAsync(ct);
-            try
-            {
-                Backup backup = await db.Snapshots.Where(x => x.Id == snapshotId).Select(x => x.Backup).SingleAsync(ct);
-                IStreamCipher backupCipher = BackupKeyCipher.Resolve(backup, cipher);
-                PortableCatalog catalog = await ReadCatalogAsync(storage, backupCipher, backup.Id, ct);
-                PortableSnapshot? snapshot = catalog.Snapshots.SingleOrDefault(x => x.Id == snapshotId);
-                if (snapshot is not null)
-                {
-                    await DeleteDirectoryAsync(storage, backupCipher, snapshot.Generation, string.Empty, ct);
-                    catalog.Snapshots.Remove(snapshot);
-                }
-                if (catalog.Snapshots.Count > 0)
-                {
-                    await PortableMetadata.WriteAsync(storage, backupCipher, PortableFormat.BackupCatalog(backup.Id), catalog, ct);
-                }
-                else
-                {
-                    PortableIndex index = await PortableMetadata.ReadIndexAsync(storage, ct);
-                    index.Backups.Remove(backup.Id);
-                    if (index.Backups.Count > 0)
-                    {
-                        await PortableMetadata.WriteIndexAsync(storage, index, ct);
-                    }
-                    else
-                    {
-                        await DeleteObjectAsync(storage, PortableFormat.CatalogPath, ct);
-                    }
-                    await DeleteObjectAsync(storage, PortableFormat.BackupCatalog(backup.Id), ct);
-                }
-            }
-            finally
-            {
-                gate.Release();
-            }
         }
 
         private static async Task<PortableCatalog> ReadCatalogAsync(IBackupStorage storage, IStreamCipher backupCipher,
@@ -156,16 +107,13 @@ namespace Octockup.Server.Portable
                         }
                         return ChunkStorageHelpers.Parse(key, chunk.CompressionAlgorithm, chunk.OriginalSize);
                     }).ToList();
-                    string path = PortableFormat.Normalize(file.Path);
-                    if (path.Length == 0)
-                    {
-                        path = PortableFormat.Normalize(file.Name);
-                    }
+                    string path = GetFilePath(file.Path, file.Name);
                     await tree.AddAsync(new(path, path[(path.LastIndexOf('/') + 1)..], false,
                         file.Size, file.LastModified, file.Hashsum, descriptors), ct);
                 }
                 cursor = batch[^1].Path;
             }
+            await PortableMetadata.WriteAsync(storage, backupCipher, PortableFormat.PendingGeneration(generation), true, ct);
             string? directory = null;
             long count = 0;
             int pages = 0;
@@ -209,45 +157,14 @@ namespace Octockup.Server.Portable
             return result;
         }
 
-        private static async Task DeleteDirectoryAsync(IBackupStorage storage, IStreamCipher cipher,
-            Guid generation, string path, CancellationToken ct)
+        private static string GetFilePath(string path, string name)
         {
-            string prefix = PortableFormat.DirectoryPath(generation, path);
-            string header = prefix + "/directory";
-            if (await storage.ExistsAsync(header, ct) != true)
+            string normalized = PortableFormat.Normalize(path);
+            if (normalized.Length == 0)
             {
-                return;
+                normalized = PortableFormat.Normalize(name);
             }
-            PortableDirectory directory = await PortableMetadata.ReadAsync<PortableDirectory>(storage, cipher, header, ct);
-            for (int page = 0; page < directory.Pages; page++)
-            {
-                string pagePath = $"{prefix}/{page}";
-                if (await storage.ExistsAsync(pagePath, ct) != true)
-                {
-                    continue;
-                }
-                List<PortableEntry> entries = await PortableMetadata.ReadAsync<List<PortableEntry>>(storage, cipher, pagePath, ct);
-                foreach (PortableEntry entry in entries.Where(x => x.IsDirectory))
-                {
-                    if (entry.Name.Length == 0 || entry.Name.Contains('/') || entry.Name.Contains('\\') ||
-                        PortableFormat.Normalize(entry.Path) != entry.Path || entry.Path.Count(x => x == '/') > 256 ||
-                        entry.Path != (path.Length == 0 ? entry.Name : path + "/" + entry.Name))
-                    {
-                        throw new InvalidDataException("Invalid catalog directory.");
-                    }
-                    await DeleteDirectoryAsync(storage, cipher, generation, entry.Path, ct);
-                }
-                await DeleteObjectAsync(storage, pagePath, ct);
-            }
-            await DeleteObjectAsync(storage, header, ct);
-        }
-
-        private static async Task DeleteObjectAsync(IBackupStorage storage, string path, CancellationToken ct)
-        {
-            if (await storage.DeleteAsync(path, ct) != true && await storage.ExistsAsync(path, ct) == true)
-            {
-                throw new IOException("Could not remove catalog object.");
-            }
+            return normalized;
         }
     }
 }
