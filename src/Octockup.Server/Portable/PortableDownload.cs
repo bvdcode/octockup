@@ -10,7 +10,7 @@ namespace Octockup.Server.Portable
     {
         public async Task<PortableEntry> FindFileAsync(Guid user, PortableDownloadRequest request, PortableAccess storage, CancellationToken ct)
         {
-            string path = PortableFormat.Normalize(request.Path);
+            string path = PortableFormat.Normalize(request.Path ?? string.Empty);
             int separator = path.LastIndexOf('/');
             string parent = separator < 0 ? string.Empty : path[..separator];
             PortablePage page = await reader.ReadPageAsync(storage, access.Snapshot(user, request.Session, request.SnapshotId),
@@ -22,7 +22,7 @@ namespace Octockup.Server.Portable
             Stream output, CancellationToken ct)
         {
             PortableSnapshot snapshot = access.Snapshot(user, request.Session, request.SnapshotId);
-            string path = PortableFormat.Normalize(request.Path);
+            string path = PortableFormat.Normalize(request.Path ?? string.Empty);
             return StoredZipArchiveWriter.WriteAsync(output, EntriesAsync(storage, snapshot, path, ct), ct);
         }
         private async IAsyncEnumerable<StoredZipArchiveEntry> EntriesAsync(PortableAccess storage,

@@ -88,6 +88,7 @@ namespace Octockup.Server.Controllers
                 .ThenBy(sf => sf.Name)
                 .ToListAsync(cancellationToken);
 
+            IStreamCipher chunkCipher = BackupKeyCipher.Resolve(snapshot.Backup, _crypto);
             Dictionary<Guid, IReadOnlyList<ChunkStorageDescriptor>> chunksByFile;
             try
             {
@@ -95,7 +96,7 @@ namespace Octockup.Server.Controllers
                     snapshot.Backup.StorageId,
                     snapshotFiles,
                     storage,
-                    BackupKeyCipher.Resolve(snapshot.Backup, _crypto),
+                    chunkCipher,
                     cancellationToken);
             }
             catch (Exception ex) when (ex is FormatException or NotSupportedException)
@@ -109,7 +110,7 @@ namespace Octockup.Server.Controllers
                     snapshotFile,
                     chunksByFile[snapshotFile.Id],
                     storage,
-                    BackupKeyCipher.Resolve(snapshot.Backup, _crypto),
+                    chunkCipher,
                     cancellationToken,
                     validate))
                 .ToList();

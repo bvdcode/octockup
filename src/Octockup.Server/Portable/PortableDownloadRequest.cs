@@ -3,5 +3,5 @@
 
 namespace Octockup.Server.Portable
 {
-    public record PortableDownloadRequest(string Session, Guid SnapshotId, string Path, int Page, bool Folder);
+    public record PortableDownloadRequest(string Session, Guid SnapshotId, string? Path, int Page, bool Folder);
 }

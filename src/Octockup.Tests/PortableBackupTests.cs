@@ -24,7 +24,7 @@ using System.Security.Claims;
 namespace Octockup.Tests
 {
     [Category("Integration")]
-    public class PortableBackupTests
+    public partial class PortableBackupTests
     {
         private PostgresTestDatabase _source = null!;
         private PostgresTestDatabase _recipient = null!;
