@@ -4,7 +4,6 @@
 using EasyExtensions.AspNetCore.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Octockup.Server.Abstractions;
-using Octockup.Server.Controllers;
 using Octockup.Server.Models;
 
 namespace Octockup.Server.Helpers
@@ -33,7 +32,7 @@ namespace Octockup.Server.Helpers
             }
         }
 
-        public static async Task<IActionResult> TestSourceAsync(ModuleController moduleController, IBackupSource source, ILogger<ModuleController> logger)
+        public static async Task<IActionResult> TestSourceAsync(ControllerBase moduleController, IBackupSource source, ILogger logger)
         {
             try
             {
