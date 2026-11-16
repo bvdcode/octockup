@@ -1,6 +1,7 @@
 export const queryKeys = {
   backups: ["backups"],
   modules: ["modules"],
+  moduleParameters: (moduleId: string) => ["module-parameters", moduleId],
   moduleProviders: (type: "source" | "storage") => [
     "module-providers",
     type,

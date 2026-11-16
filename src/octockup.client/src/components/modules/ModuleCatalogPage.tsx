@@ -1,4 +1,4 @@
-import { AddCircleOutline, DeleteOutline } from "@mui/icons-material";
+import { AddCircleOutline, DeleteOutline, EditOutlined } from "@mui/icons-material";
 import {
   Alert,
   Box,
@@ -24,6 +24,7 @@ import { ModuleDestination } from "../../types/api";
 import { getApiErrorMessage } from "../../utils/apiError";
 import { parseUtcDate } from "../../utils/dateUtils";
 import { EditableModuleTag } from "../EditableModuleTag";
+import EditModuleDialog from "./EditModuleDialog";
 
 interface ModuleCatalogPageProps {
   destination: ModuleDestination;
@@ -53,6 +54,8 @@ export function ModuleCatalogPage({
   const navigate = useNavigate();
   const catalog = useModuleCatalog(destination, providerType);
   const [snackbar, setSnackbar] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Module | null>(null);
+  const editingProvider = catalog.providers.find((provider) => provider.id === editing?.backupModuleId);
   const key = (suffix: string) => `${translationPrefix}.${suffix}`;
 
   const renameModule = async (moduleId: string, newTag: string) => {
@@ -109,6 +112,7 @@ export function ModuleCatalogPage({
                 deleteText={t(key("deleteText"))}
                 onRename={(newTag) => renameModule(module.id, newTag)}
                 onDelete={() => catalog.deleteModule(module.id)}
+                onEdit={() => setEditing(module)}
               />
             ))}
           </Box>
@@ -144,6 +148,9 @@ export function ModuleCatalogPage({
           )}
         </Box>
       </Box>
+      {editing && editingProvider && (
+        <EditModuleDialog key={editing.id} module={editing} provider={editingProvider} onClose={() => setEditing(null)} />
+      )}
       <Snackbar
         open={snackbar !== null}
         autoHideDuration={6000}
@@ -161,6 +168,7 @@ interface ConfiguredModuleCardProps {
   deleteText: string;
   onRename: (newTag: string) => Promise<void>;
   onDelete: () => Promise<void>;
+  onEdit: () => void;
 }
 
 function ConfiguredModuleCard({
@@ -170,6 +178,7 @@ function ConfiguredModuleCard({
   deleteText,
   onRename,
   onDelete,
+  onEdit,
 }: ConfiguredModuleCardProps) {
   const { t } = useTranslation();
   const deleteConfiguredModule = async () => {
@@ -195,6 +204,12 @@ function ConfiguredModuleCard({
         position: "relative",
       }}
     >
+      <Tooltip title={t("moduleEdit.edit")}>
+        <IconButton size="small" aria-label={t("moduleEdit.edit")}
+          sx={{ position: "absolute", top: 4, right: 36 }} onClick={onEdit}>
+          <EditOutlined fontSize="small" color="primary" />
+        </IconButton>
+      </Tooltip>
       <Tooltip title={deleteTooltip} placement="left">
         <IconButton
           size="small"

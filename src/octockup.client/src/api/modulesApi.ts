@@ -4,6 +4,7 @@ import { useAxios } from "@bvdcode/react-kit";
 import { ModuleDestination } from "../types/api";
 import type {
   Module,
+  ModuleParameters,
   ModuleProviderInfo,
   CreateModuleRequest,
 } from "../types/api";
@@ -84,6 +85,25 @@ class ModulesApiClient {
   async delete(moduleId: string): Promise<void> {
     await this.axios().delete(
       `/api/v1/modules/${encodeURIComponent(moduleId)}`,
+    );
+  }
+
+  async getParameters(moduleId: string): Promise<ModuleParameters> {
+    const { data } = await this.axios().get<ModuleParameters>(
+      `/api/v1/modules/${encodeURIComponent(moduleId)}/parameters`,
+    );
+    return data;
+  }
+
+  async updateParameters(moduleId: string, parameters: Record<string, string>): Promise<void> {
+    await this.axios().patch(
+      `/api/v1/modules/${encodeURIComponent(moduleId)}/parameters`, parameters,
+    );
+  }
+
+  async testParameters(moduleId: string, parameters: Record<string, string>): Promise<void> {
+    await this.axios().post(
+      `/api/v1/modules/${encodeURIComponent(moduleId)}/parameters/test`, parameters,
     );
   }
 

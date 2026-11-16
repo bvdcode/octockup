@@ -32,7 +32,9 @@ interface ParametersFormProps {
   onParamChange: (name: string, value: string) => void;
   onPrivateKeyPassphraseChange: (value: string) => void;
   onTagChange: (value: string) => void;
-  onParamsPaste: (e: ClipboardEvent<HTMLInputElement>) => void;
+  onParamsPaste?: (e: ClipboardEvent<HTMLInputElement>) => void;
+  hideTag?: boolean;
+  storedSecrets?: string[];
   disabled?: boolean;
 }
 
@@ -45,6 +47,8 @@ export function ParametersForm({
   onPrivateKeyPassphraseChange,
   onTagChange,
   onParamsPaste,
+  hideTag = false,
+  storedSecrets = [],
   disabled,
 }: ParametersFormProps) {
   const { t } = useTranslation();
@@ -64,7 +68,7 @@ export function ParametersForm({
           {t("wizard.parameters")}
         </Typography>
         <Stack spacing={2}>
-          <TextField
+          {!hideTag && <TextField
             required
             fullWidth
             label={t("wizard.tag")}
@@ -72,7 +76,7 @@ export function ParametersForm({
             onChange={(e) => onTagChange(e.target.value)}
             placeholder={t("wizard.enterTag")}
             disabled={disabled}
-          />
+          />}
           {moduleMeta.requiredParameters.length === 0 ? (
             <Typography
               variant="body2"
@@ -115,7 +119,7 @@ export function ParametersForm({
                   return (
                     <Stack key={p} spacing={2}>
                       <TextField
-                        required
+                        required={!storedSecrets.includes(p)}
                         fullWidth
                         label={t("wizard.sftpCredential")}
                         multiline
@@ -125,8 +129,8 @@ export function ParametersForm({
                         onChange={(event) =>
                           onParamChange(p, event.target.value)
                         }
-                        placeholder={t("wizard.sftpCredentialPlaceholder")}
-                        helperText={t("wizard.sftpCredentialHelp")}
+                        placeholder={t(storedSecrets.includes(p) ? "moduleEdit.secretUnchanged" : "wizard.sftpCredentialPlaceholder")}
+                        helperText={t(storedSecrets.includes(p) ? "moduleEdit.secretUnchanged" : "wizard.sftpCredentialHelp")}
                         disabled={disabled}
                       />
                       {encrypted && (
@@ -148,21 +152,22 @@ export function ParametersForm({
                   );
                 }
 
-                const isPassword = p.toLowerCase().includes("password");
+                const isPassword = p.toLowerCase().includes("password") || p === "secretKey" || p === "accessKey";
                 const inputType =
                   isPassword && !showPassword[p] ? "password" : "text";
 
                 return (
                   <TextField
                     key={p}
-                    required={p !== "path"}
+                    required={p !== "path" && !storedSecrets.includes(p)}
                     fullWidth
                     label={p}
                     type={inputType}
                     value={params[p] ?? ""}
                     onChange={(e) => onParamChange(p, e.target.value)}
                     onPaste={onParamsPaste}
-                    placeholder={t("wizard.enterValue", { param: p })}
+                    placeholder={storedSecrets.includes(p) ? t("moduleEdit.secretUnchanged") : t("wizard.enterValue", { param: p })}
+                    helperText={storedSecrets.includes(p) ? t("moduleEdit.secretUnchanged") : undefined}
                     disabled={disabled}
                     InputProps={
                       isPassword
@@ -170,6 +175,7 @@ export function ParametersForm({
                             endAdornment: (
                               <InputAdornment position="end">
                                 <IconButton
+                                  aria-label={t(showPassword[p] ? "moduleEdit.hideSecret" : "moduleEdit.showSecret", { name: p })}
                                   onClick={() => togglePasswordVisibility(p)}
                                   edge="end"
                                   disabled={disabled}

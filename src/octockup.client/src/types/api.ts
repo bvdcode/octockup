@@ -30,6 +30,11 @@ export interface TestResultItem {
   lastModified?: string;
 }
 
+export interface ModuleParameters {
+  parameters: Record<string, string>;
+  storedSecrets: string[];
+}
+
 export interface CreateModuleRequest {
   destination: ModuleDestination;
   tag: string;

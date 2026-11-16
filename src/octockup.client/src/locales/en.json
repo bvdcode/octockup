@@ -1,4 +1,15 @@
 {
+  "moduleEdit": {
+    "edit": "Edit connection",
+    "showSecret": "Show {{name}}",
+    "hideSecret": "Hide {{name}}",
+    "title": "Connection: {{tag}}",
+    "secretUnchanged": "Already set. Leave empty to keep unchanged.",
+    "appliesNextTime": "Changes apply to the next connection. Backups and schedules remain linked; running operations keep their current connection.",
+    "storageLocationWarning": "Changing the endpoint, bucket or path does not move stored data. The updated connection must point to the same backup files.",
+    "loadFailed": "Could not load connection settings.",
+    "saveFailed": "Could not save connection settings."
+  },
   "storageBrowser": {
     "title": "Storage Browser",
     "description": "Open a backup using a target and its master key.",
