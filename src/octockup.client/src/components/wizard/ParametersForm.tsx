@@ -62,7 +62,7 @@ export function ParametersForm({
   };
 
   return (
-    <Card>
+    <Card sx={{ "& .MuiInputLabel-root.Mui-focused": { color: "text.primary" } }}>
       <CardContent>
         <Typography variant="h6" gutterBottom>
           {t("wizard.parameters")}
@@ -152,7 +152,7 @@ export function ParametersForm({
                   );
                 }
 
-                const isPassword = p.toLowerCase().includes("password") || p === "secretKey" || p === "accessKey";
+                const isPassword = p.toLowerCase().includes("password") || p === "secretKey" || p === "accessKey" || p === "token";
                 const inputType =
                   isPassword && !showPassword[p] ? "password" : "text";
 
@@ -161,7 +161,7 @@ export function ParametersForm({
                     key={p}
                     required={p !== "path" && !storedSecrets.includes(p)}
                     fullWidth
-                    label={p}
+                    label={p === "playlistUrl" || p === "token" ? t(`wizard.${p}`) : p}
                     type={inputType}
                     value={params[p] ?? ""}
                     onChange={(e) => onParamChange(p, e.target.value)}

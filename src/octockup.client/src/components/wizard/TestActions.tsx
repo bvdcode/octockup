@@ -32,6 +32,7 @@ export function TestActions({
       <Stack direction="row" spacing={2} justifyContent="flex-end">
         <Button
           variant="outlined"
+          color="inherit"
           onClick={onTest}
           disabled={testLoading || creating}
         >

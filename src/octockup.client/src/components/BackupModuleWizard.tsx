@@ -357,6 +357,7 @@ export default function BackupModuleWizard({
         <Button
           sx={{ mt: 2 }}
           variant="outlined"
+          color="inherit"
           startIcon={<ArrowBack />}
           onClick={() => navigate(backRoute)}
         >
@@ -372,6 +373,7 @@ export default function BackupModuleWizard({
         <Stack direction="row" spacing={2} alignItems="center">
           <Button
             variant="outlined"
+            color="inherit"
             startIcon={<ArrowBack />}
             onClick={handleBack}
             disabled={creating}

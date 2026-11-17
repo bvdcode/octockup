@@ -156,6 +156,8 @@
     "renameFailed": "Failed to rename source."
   },
   "wizard": {
+    "playlistUrl": "Playlist URL",
+    "token": "Token",
     "back": "Back",
     "title": "Add Source Wizard",
     "parameters": "Parameters",

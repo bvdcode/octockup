@@ -41,6 +41,18 @@ On another instance, configure the target, open **Storage Browser**, and enter t
 
 Viewing keys are retained in server memory for a session lasting up to 30 minutes. **Lock and exit** closes access sooner. Keep the separate backup key: the receiving instance's server key cannot replace it. Use a dedicated target or prefix for a shared backup, and give the recipient read-only storage credentials when possible.
 
+## Yandex Music
+
+Create a **Yandex Music** source with a user playlist URL (`https://music.yandex.ru/users/<account>/playlists/<id>`) and an OAuth token. The token is encrypted with the other connection credentials and is not returned by the connection settings API.
+
+The source saves the best available audio, original-resolution embedded covers, track tags and synchronized lyrics as `.lrc` files. `playlist.json` retains the playlist metadata, track identifiers, order, duplicates and unavailable entries. `playlist.m3u8` references the downloaded audio in playlist order. Track filenames include their identifiers to prevent title collisions. Unavailable audio cannot be downloaded; its metadata remains in the JSON manifest.
+
+Downloads use native .NET HTTP requests without a Python runtime. One audio file is staged in the system temporary directory for tagging and removed when its stream closes. A metadata-only index under `data/music-cache` lets subsequent backups reuse unchanged tracks; keep `data` persistent to retain this optimization. No audio or OAuth tokens are written to that index. Database migrations are not required.
+
+The `YandexMusic` configuration section supports `Timeout` (60 seconds), `TrackDelay` (10 seconds), `RetryDelay` (60 seconds), `Attempts` (3), and `CacheDirectory`. Network tests use an emulated provider; the backup round-trip and incremental reuse tests use PostgreSQL and a local filesystem target.
+
+The integration uses the HTTP contracts documented by [Yandex Music API](https://github.com/MarshalX/yandex-music-api) and the behavior of [yandex-music-downloader](https://github.com/llistochek/yandex-music-downloader). Tags and covers are written with [TagLibSharp](https://github.com/mono/taglib-sharp), distributed under LGPL-2.1-only. The upstream API is unofficial and may change.
+
 ## Installation
 
 Dockerhub: [Link](https://hub.docker.com/r/bvdcode/octockup)
