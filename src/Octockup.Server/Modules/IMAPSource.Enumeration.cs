@@ -102,52 +102,58 @@ namespace Octockup.Server.Modules
             IMailFolder folder,
             CancellationToken cancellationToken)
         {
-            IMailFolder? openedFolder = null;
-            _imapLock.Wait(cancellationToken);
-            try
+            int? total = null;
+            for (int start = 0; !total.HasValue || start < total.Value; start += _batchSize)
             {
-                openedFolder = OpenFolder(folder, cancellationToken);
-                if (openedFolder is null)
+                cancellationToken.ThrowIfCancellationRequested();
+                IMailFolder? openedFolder = null;
+                IReadOnlyList<IMessageSummary>? summaries;
+                _imapLock.Wait(cancellationToken);
+                try
                 {
-                    yield break;
-                }
-
-                int total = openedFolder.Count;
-                _logger.LogInformation(
-                    "Enumerating {Total} emails in folder {Folder} in batches of {Batch}",
-                    total,
-                    openedFolder.FullName,
-                    _batchSize);
-
-                for (int start = 0; start < total; start += _batchSize)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    int end = Math.Min(start + _batchSize - 1, total - 1);
-                    IReadOnlyList<IMessageSummary>? summaries = FetchSummaries(
+                    openedFolder = OpenFolder(folder, cancellationToken);
+                    if (openedFolder is null)
+                    {
+                        yield break;
+                    }
+                    if (!total.HasValue)
+                    {
+                        total = openedFolder.Count;
+                        _logger.LogInformation(
+                            "Enumerating {Total} emails in folder {Folder} in batches of {Batch}",
+                            total.Value,
+                            openedFolder.FullName,
+                            _batchSize);
+                    }
+                    if (start >= total.Value)
+                    {
+                        yield break;
+                    }
+                    int end = Math.Min(start + _batchSize - 1, total.Value - 1);
+                    summaries = FetchSummaries(
                         openedFolder,
                         start,
                         end,
                         cancellationToken);
-                    if (summaries is null)
+                }
+                finally
+                {
+                    CloseFolder(openedFolder, cancellationToken);
+                    _imapLock.Release();
+                }
+                if (summaries is null)
+                {
+                    yield break;
+                }
+                foreach (IMessageSummary summary in summaries)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    BackupFileInfo? file = CreateFileInfo(folder, summary);
+                    if (file is not null)
                     {
-                        yield break;
-                    }
-
-                    foreach (IMessageSummary summary in summaries)
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        BackupFileInfo? file = CreateFileInfo(openedFolder, summary);
-                        if (file is not null)
-                        {
-                            yield return file;
-                        }
+                        yield return file;
                     }
                 }
-            }
-            finally
-            {
-                CloseFolder(openedFolder, cancellationToken);
-                _imapLock.Release();
             }
         }
 
