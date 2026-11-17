@@ -7,6 +7,7 @@ using Octockup.Server.Database;
 using Octockup.Server.Models.Enums;
 using Octockup.Server.Services;
 using Quartz;
+using System.Diagnostics;
 
 namespace Octockup.Server.Jobs
 {
@@ -17,16 +18,31 @@ namespace Octockup.Server.Jobs
         StorageOperationCoordinator storageOperations,
         ILogger<StorageCleanupJob> logger) : IJob
     {
-        public async Task Execute(IJobExecutionContext context)
+        private static readonly DateTime ProcessStartedAt = GetProcessStartedAt();
+
+        public Task Execute(IJobExecutionContext context)
+        {
+            return ExecuteAsync(context.CancellationToken);
+        }
+
+        internal async Task ExecuteAsync(CancellationToken cancellationToken)
         {
             StorageCleanup? cleanup = await dbContext.StorageCleanups
                 .Include(x => x.Module)
                 .Include(x => x.LastRun)
                 .Where(x => x.Status == StorageCleanupStatus.Running)
                 .OrderBy(x => x.UpdatedAt)
-                .FirstOrDefaultAsync(context.CancellationToken);
+                .FirstOrDefaultAsync(cancellationToken);
             if (cleanup is null)
             {
+                return;
+            }
+
+            StorageCleanupRun? run = cleanup.LastRun;
+            if (run is not null && run.StartedAt < ProcessStartedAt)
+            {
+                await FailAsync(cleanup, run, "Cleanup was interrupted. Start it manually to continue.");
+                logger.LogWarning("Storage cleanup {CleanupId} requires a manual restart.", cleanup.Id);
                 return;
             }
 
@@ -40,7 +56,6 @@ namespace Octockup.Server.Jobs
                 return;
             }
 
-            StorageCleanupRun? run = cleanup.LastRun;
             try
             {
                 if (run is null || run.Status != StorageCleanupStatus.Running)
@@ -48,33 +63,33 @@ namespace Octockup.Server.Jobs
                     throw new StorageCleanupConfigurationException(
                         $"Active cleanup run not found: {cleanup.Id}");
                 }
-                await processor.ProcessAsync(cleanup, run, context.CancellationToken);
-            }
-            catch (StorageCleanupConfigurationException ex)
-            {
-                cleanup.Status = StorageCleanupStatus.Failed;
-                cleanup.ErrorMessage = ex.Message;
-                if (run is not null)
-                {
-                    run.Status = StorageCleanupStatus.Failed;
-                    run.CompletedAt = DateTime.UtcNow;
-                    run.ErrorMessage = ex.Message;
-                }
-                await dbContext.SaveChangesAsync(CancellationToken.None);
-                logger.LogError(ex, "Storage cleanup {CleanupId} has invalid configuration.", cleanup.Id);
-                throw;
+                await processor.ProcessAsync(cleanup, run, cancellationToken);
             }
             catch (Exception ex)
             {
-                cleanup.ErrorMessage = ex.Message;
-                if (run is not null)
-                {
-                    run.ErrorMessage = ex.Message;
-                }
-                await dbContext.SaveChangesAsync(CancellationToken.None);
                 logger.LogError(ex, "Storage cleanup {CleanupId} failed.", cleanup.Id);
+                await FailAsync(cleanup, run, ex.Message);
                 throw;
             }
+        }
+
+        private async Task FailAsync(StorageCleanup cleanup, StorageCleanupRun? run, string message)
+        {
+            cleanup.Status = StorageCleanupStatus.Failed;
+            cleanup.ErrorMessage = message;
+            if (run is not null)
+            {
+                run.Status = StorageCleanupStatus.Failed;
+                run.CompletedAt = DateTime.UtcNow;
+                run.ErrorMessage = message;
+            }
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+
+        private static DateTime GetProcessStartedAt()
+        {
+            using Process process = Process.GetCurrentProcess();
+            return process.StartTime.ToUniversalTime();
         }
     }
 }

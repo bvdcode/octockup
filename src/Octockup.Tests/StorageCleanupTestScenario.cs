@@ -5,6 +5,7 @@ using EasyExtensions.Abstractions;
 using EasyExtensions.Crypto;
 using EasyExtensions.Models.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging.Abstractions;
 using Octockup.Server.Abstractions;
 using Octockup.Server.Database;
@@ -12,6 +13,7 @@ using Octockup.Server.Helpers;
 using Octockup.Server.Jobs;
 using Octockup.Server.Models.Enums;
 using Octockup.Server.Modules;
+using Octockup.Server.Services;
 using System.Security.Cryptography;
 
 namespace Octockup.Tests
@@ -48,7 +50,11 @@ namespace Octockup.Tests
             _runId = runId;
         }
 
-        public static async Task<StorageCleanupTestScenario> CreateAsync(string connectionString)
+        public PostgresDbContext DbContext => _dbContext;
+
+        public static async Task<StorageCleanupTestScenario> CreateAsync(
+            string connectionString,
+            params IInterceptor[] interceptors)
         {
             string scenarioId = Guid.NewGuid().ToString("N");
             string mount = Path.Combine(TestMountsDirectoryName, scenarioId);
@@ -61,6 +67,7 @@ namespace Octockup.Tests
 
             DbContextOptions<PostgresDbContext> options = new DbContextOptionsBuilder<PostgresDbContext>()
                 .UseNpgsql(connectionString)
+                .AddInterceptors(interceptors)
                 .Options;
             PostgresDbContext dbContext = new(options);
             IStreamCipher crypto = new AesGcmStreamCipher(RandomNumberGenerator.GetBytes(32));
@@ -198,6 +205,28 @@ namespace Octockup.Tests
             return _dbContext.StorageCleanups
                 .AsNoTracking()
                 .SingleAsync(x => x.Id == _cleanupId);
+        }
+
+        public async Task ExecuteJobAsync()
+        {
+            StorageCleanupProcessor processor = new(
+                _crypto,
+                _dbContext,
+                [_provider],
+                NullLogger<StorageCleanupProcessor>.Instance);
+            StorageCleanupJob job = new(
+                _dbContext,
+                processor,
+                new StorageOperationCoordinator(),
+                NullLogger<StorageCleanupJob>.Instance);
+            try
+            {
+                await job.ExecuteAsync(CancellationToken.None);
+            }
+            finally
+            {
+                _dbContext.ChangeTracker.Clear();
+            }
         }
 
         public Task<StorageCleanupRun> GetRunAsync()
