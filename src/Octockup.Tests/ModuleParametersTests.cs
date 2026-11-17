@@ -38,7 +38,7 @@ namespace Octockup.Tests
         {
             await using BackupIntegrationScenario scenario = await BackupIntegrationScenario.CreateAsync(_database.ConnectionString);
             Module module = await GetModuleAsync(scenario, target);
-            foreach (string key in new[] { "password", "accessKey", "secretKey" })
+            foreach (string key in new[] { "password", "accessKey", "secretKey", "token" })
             {
                 module.Params(scenario.Cipher)[key] = $"saved-{key}";
             }
@@ -51,8 +51,8 @@ namespace Octockup.Tests
 
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
             Assert.That(response.Headers.CacheControl?.NoStore, Is.True);
-            Assert.That(result!.StoredSecrets, Is.EquivalentTo(new[] { "password", "accessKey", "secretKey" }));
-            Assert.That(result.Parameters.Keys, Does.Not.Contain("password").And.Not.Contain("accessKey").And.Not.Contain("secretKey"));
+            Assert.That(result!.StoredSecrets, Is.EquivalentTo(new[] { "password", "accessKey", "secretKey", "token" }));
+            Assert.That(result.Parameters.Keys, Does.Not.Contain("password").And.Not.Contain("accessKey").And.Not.Contain("secretKey").And.Not.Contain("token"));
             Assert.That(result.Parameters["path"], Is.EqualTo(module.Params(scenario.Cipher)["path"]));
         }
 
@@ -95,16 +95,18 @@ namespace Octockup.Tests
             await using BackupIntegrationScenario scenario = await BackupIntegrationScenario.CreateAsync(_database.ConnectionString);
             Module module = await GetModuleAsync(scenario, true);
             module.Params(scenario.Cipher)["secretKey"] = "keep-secret";
+            module.Params(scenario.Cipher)["token"] = "keep-token";
             await scenario.Database.SaveChangesAsync();
             await using WebApplication app = await CreateServerAsync(scenario, module.UserId);
             using HttpClient client = app.GetTestClient();
 
-            using HttpResponseMessage response = await client.PatchAsJsonAsync(Url(module.Id), new { secretKey = "", path = "", host = "new.example.com" });
+            using HttpResponseMessage response = await client.PatchAsJsonAsync(Url(module.Id), new { secretKey = "", token = " ", path = "", host = "new.example.com" });
             scenario.Database.ChangeTracker.Clear();
             Module updated = await scenario.Database.Modules.SingleAsync(x => x.Id == module.Id);
 
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
             Assert.That(updated.Params(scenario.Cipher)["secretKey"], Is.EqualTo("keep-secret"));
+            Assert.That(updated.Params(scenario.Cipher)["token"], Is.EqualTo("keep-token"));
             Assert.That(updated.Params(scenario.Cipher)["path"], Is.Empty);
             Assert.That(updated.Params(scenario.Cipher)["host"], Is.EqualTo("new.example.com"));
         }

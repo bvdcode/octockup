@@ -48,6 +48,7 @@ namespace Octockup.Server
                 .AddScoped<IBackupProvider, S3BackupStorage>()
                 .AddScoped<IBackupProvider, SFTPBackupStorage>()
                 .AddScoped<IBackupProvider, FileSystemBackupSource>()
+                .AddYandexMusic(builder.Configuration)
                 .AddScoped<IBackupJobScheduler, BackupJobScheduler>()
                 .AddSingleton<StorageOperationCoordinator>()
                 .AddScoped<StorageCleanupProcessor>()

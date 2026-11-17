@@ -5,7 +5,7 @@ namespace Octockup.Server.Helpers
 {
     public static class ModuleParameterValues
     {
-        public static bool IsSecret(string name) => name is "password" or "accessKey" or "secretKey";
+        public static bool IsSecret(string name) => name is "password" or "accessKey" or "secretKey" or "token";
 
         public static Dictionary<string, string> Merge(IReadOnlyDictionary<string, string> saved,
             IReadOnlyDictionary<string, string> changes)

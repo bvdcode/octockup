@@ -61,7 +61,8 @@ namespace Octockup.Tests
         public static async Task<BackupIntegrationScenario> CreateAsync(
             string connectionString,
             IInterceptor? interceptor = null,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            Action<IServiceCollection>? configureServices = null)
         {
             string scenarioId = Guid.NewGuid().ToString("N");
             string relativeRoot = Path.Combine(TestMountsDirectoryName, scenarioId);
@@ -88,6 +89,7 @@ namespace Octockup.Tests
             ServiceCollection services = new();
             services.AddLogging();
             services.AddSignalR();
+            configureServices?.Invoke(services);
             ServiceProvider serviceProvider = services.BuildServiceProvider();
             IStreamCipher crypto = new AesGcmStreamCipher(RandomNumberGenerator.GetBytes(32));
             BackupIntegrationScenario scenario = new(
@@ -206,7 +208,7 @@ namespace Octockup.Tests
                 _serviceProvider,
                 _serviceProvider.GetRequiredService<ILogger<BackupRunner>>(),
                 _serviceProvider.GetRequiredService<IHubContext<EventHub>>(),
-                [provider],
+                [provider, .. _serviceProvider.GetServices<IBackupProvider>()],
                 new StorageOperationCoordinator());
             await runner.RunAsync(trackedSchedule, cancellationToken);
             _dbContext.ChangeTracker.Clear();
