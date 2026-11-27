@@ -35,6 +35,12 @@ namespace Octockup.Server.Database
         [MaxLength(160)]
         public string? DisplayName { get; set; }
 
+        internal const int MaxAvatarUrlLength = 2048;
+
+        [Column("avatar_url")]
+        [MaxLength(MaxAvatarUrlLength)]
+        public string? AvatarUrl { get; set; }
+
         [Column("last_used_at")]
         public DateTime? LastUsedAt { get; set; }
 

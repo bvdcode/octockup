@@ -5,11 +5,14 @@ using EasyExtensions;
 using EasyExtensions.Abstractions;
 using EasyExtensions.AspNetCore.Authorization.Models.Dto;
 using EasyExtensions.AspNetCore.Extensions;
+using EasyExtensions.Mediator;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Octockup.Server.Abstractions;
 using Octockup.Server.Database;
+using Octockup.Server.Handlers.Authentication;
+using Octockup.Server.Models.Dto;
 using Octockup.Server.Models.Requests;
 using Octockup.Server.Services;
 
@@ -26,27 +29,16 @@ namespace Octockup.Server.Controllers
     {
         [Authorize]
         [HttpGet("me")]
-        public async Task<IActionResult> MeAsync(CancellationToken cancellationToken)
+        public async Task<ActionResult<CurrentUserDto>> MeAsync(
+            [FromServices] IMediator mediator,
+            CancellationToken cancellationToken)
         {
-            Guid userId = User.GetUserId();
-            User? user = await _dbContext.Users
-                .AsNoTracking()
-                .SingleOrDefaultAsync(x => x.Id == userId, cancellationToken);
-            if (user == null)
+            CurrentUserDto? user = await mediator.Send(new GetCurrentUserQuery(User.GetUserId()), cancellationToken);
+            if (user is null)
             {
                 return NotFound();
             }
-            int externalIdentityCount = await _dbContext.UserExternalIdentities
-                .CountAsync(x => x.UserId == userId, cancellationToken);
-            return Ok(new
-            {
-                id = user.Id,
-                username = user.Username,
-                displayName = user.Username + "@octockup",
-                isAdmin = user.IsAdmin,
-                isDisabled = user.IsDisabled,
-                externalIdentityCount,
-            });
+            return Ok(user);
         }
 
         [Authorize]

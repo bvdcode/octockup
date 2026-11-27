@@ -9,6 +9,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.IdentityModel.Tokens;
 using Octockup.Server.Database;
+using Octockup.Server.Handlers.Authentication;
+using Octockup.Server.Models.Dto;
 using Octockup.Server.Models.Requests;
 using Octockup.Server.Services;
 using System.IdentityModel.Tokens.Jwt;
@@ -182,9 +184,13 @@ namespace Octockup.Tests
             Assert.That(sessionIssuer.IssuedUserId, Is.Null);
         }
 
-        [Test]
-        public async Task CompleteLink_RenewsSessionAndThenSignInUsesTheExistingUser()
+        [TestCase("https://issuer.example/new-avatar.png", "https://issuer.example/new-avatar.png")]
+        [TestCase(null, null)]
+        [TestCase("http://issuer.example/avatar.png", null)]
+        [TestCase("https://name:password@issuer.example/avatar.png", null)]
+        public async Task CompleteLink_RenewsSessionAndSignInUpdatesTheExistingProfile(string? picture, string? expectedAvatar)
         {
+            const string linkedAvatar = "https://issuer.example/avatar.png";
             await using PostgresDbContext dbContext = CreateDbContext();
             using OidcTestHttpMessageHandler handler = new(_rsa);
             using HttpClient httpClient = new(handler);
@@ -213,7 +219,7 @@ namespace Octockup.Tests
                 CancellationToken.None);
             Dictionary<string, Microsoft.Extensions.Primitives.StringValues> linkQuery = QueryHelpers.ParseQuery(
                 new Uri(linkAuthorizationUrl).Query);
-            handler.IdToken = CreateIdToken(provider, linkQuery["nonce"].ToString(), "linked-subject");
+            handler.IdToken = CreateIdToken(provider, linkQuery["nonce"].ToString(), "linked-subject", linkedAvatar);
             DefaultHttpContext linkContext = CreateCallbackContext(linkBeginContext, useValidValue: true);
             string linkReturnUrl = await service.CompleteCallbackAsync(
                 linkQuery["state"].ToString(),
@@ -221,7 +227,7 @@ namespace Octockup.Tests
                 linkContext.Request,
                 linkContext.Response,
                 CancellationToken.None);
-            bool identityExists = await dbContext.UserExternalIdentities.AnyAsync(
+            UserExternalIdentity identity = await dbContext.UserExternalIdentities.AsNoTracking().SingleAsync(
                 x => x.UserId == user.Id
                     && x.ProviderId == provider.Id
                     && x.Subject == "linked-subject");
@@ -231,7 +237,7 @@ namespace Octockup.Tests
                 Assert.That(linkReturnUrl, Is.EqualTo("/settings?oidc=linked"));
                 Assert.That(sessionIssuer.IssuedUserId, Is.EqualTo(user.Id));
                 Assert.That(sessionIssuer.IssueCount, Is.EqualTo(1));
-                Assert.That(identityExists, Is.True);
+                Assert.That(identity.AvatarUrl, Is.EqualTo(linkedAvatar));
             });
 
             DefaultHttpContext signInBeginContext = new();
@@ -242,7 +248,7 @@ namespace Octockup.Tests
                 CancellationToken.None);
             Dictionary<string, Microsoft.Extensions.Primitives.StringValues> signInQuery = QueryHelpers.ParseQuery(
                 new Uri(signInAuthorizationUrl).Query);
-            handler.IdToken = CreateIdToken(provider, signInQuery["nonce"].ToString(), "linked-subject");
+            handler.IdToken = CreateIdToken(provider, signInQuery["nonce"].ToString(), "linked-subject", picture);
             DefaultHttpContext signInContext = CreateCallbackContext(signInBeginContext, useValidValue: true);
             string signInReturnUrl = await service.CompleteCallbackAsync(
                 signInQuery["state"].ToString(),
@@ -253,12 +259,16 @@ namespace Octockup.Tests
             string deletedCorrelationCookie = signInContext.Response.Headers.SetCookie
                 .ToString()
                 .ToLowerInvariant();
+            GetCurrentUserQueryHandler profileQuery = new(dbContext);
+            CurrentUserDto? profile = await profileQuery.Handle(new GetCurrentUserQuery(user.Id), CancellationToken.None);
 
             Assert.Multiple(() =>
             {
                 Assert.That(signInReturnUrl, Is.EqualTo("/login?oidc=success"));
                 Assert.That(sessionIssuer.IssuedUserId, Is.EqualTo(user.Id));
                 Assert.That(sessionIssuer.IssueCount, Is.EqualTo(2));
+                Assert.That(profile, Is.Not.Null);
+                Assert.That(profile?.AvatarUrl, Is.EqualTo(expectedAvatar));
                 Assert.That(
                     deletedCorrelationCookie,
                     Does.Contain("expires=thu, 01 jan 1970 00:00:00 gmt"));

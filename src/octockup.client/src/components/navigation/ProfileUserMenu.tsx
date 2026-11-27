@@ -86,7 +86,11 @@ export default function ProfileUserMenu() {
         }
         sx={{ p: 0 }}
       >
-        <Avatar src={currentUser?.avatarUrl ?? "/octockup.png"} alt={displayName}>
+        <Avatar
+          src={currentUser?.avatarUrl ?? "/octockup.png"}
+          alt={displayName}
+          slotProps={{ img: { referrerPolicy: "no-referrer" } }}
+        >
           {displayName.slice(0, 1).toUpperCase()}
         </Avatar>
       </IconButton>

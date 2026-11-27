@@ -52,20 +52,24 @@ namespace Octockup.Tests
             return provider;
         }
 
-        private string CreateIdToken(OidcProvider provider, string nonce, string subject)
+        private string CreateIdToken(OidcProvider provider, string nonce, string subject, string? picture = null)
         {
             RsaSecurityKey securityKey = new(_rsa)
             {
                 KeyId = "test-key",
             };
             SigningCredentials credentials = new(securityKey, SecurityAlgorithms.RsaSha256);
-            Claim[] claims =
+            List<Claim> claims =
             [
                 new Claim(JwtRegisteredClaimNames.Sub, subject),
                 new Claim("nonce", nonce),
                 new Claim(JwtRegisteredClaimNames.Email, "user@example.com"),
                 new Claim("name", "Test User"),
             ];
+            if (picture is not null)
+            {
+                claims.Add(new Claim("picture", picture));
+            }
             JwtSecurityToken token = new(
                 issuer: provider.Issuer + "/",
                 audience: provider.ClientId,

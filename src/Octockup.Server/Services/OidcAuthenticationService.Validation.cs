@@ -114,7 +114,21 @@ namespace Octockup.Server.Services
             string subject = RequiredClaim(principal, JwtRegisteredClaimNames.Sub, 256);
             string? email = OptionalClaim(principal, 320, JwtRegisteredClaimNames.Email, "email");
             string? displayName = OptionalClaim(principal, 160, "name", "preferred_username");
-            return new OidcIdentityClaims(subject, email, displayName);
+            return new OidcIdentityClaims(subject, email, displayName, ReadAvatarUrl(principal));
+        }
+
+        private static string? ReadAvatarUrl(ClaimsPrincipal principal)
+        {
+            string? picture = FindClaim(principal, "picture")?.Trim();
+            if (picture is null || picture.Length > UserExternalIdentity.MaxAvatarUrlLength
+                || !Uri.TryCreate(picture, UriKind.Absolute, out Uri? uri)
+                || uri.Scheme != Uri.UriSchemeHttps || uri.UserInfo.Length != 0
+                || !uri.IsWellFormedOriginalString())
+            {
+                return null;
+            }
+
+            return picture;
         }
 
         private static string RequiredClaim(ClaimsPrincipal principal, string type, int maxLength)
@@ -164,6 +178,7 @@ namespace Octockup.Server.Services
         {
             identity.Email = claims.Email;
             identity.DisplayName = claims.DisplayName;
+            identity.AvatarUrl = claims.AvatarUrl;
             identity.LastUsedAt = DateTime.UtcNow;
         }
     }

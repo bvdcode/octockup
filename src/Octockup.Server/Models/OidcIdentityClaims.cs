@@ -6,5 +6,6 @@ namespace Octockup.Server.Models
     internal record OidcIdentityClaims(
         string Subject,
         string? Email,
-        string? DisplayName);
+        string? DisplayName,
+        string? AvatarUrl);
 }

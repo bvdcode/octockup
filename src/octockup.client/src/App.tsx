@@ -74,7 +74,6 @@ function App() {
             const response = await axiosInstance.get<CurrentUser>(
               "/api/v1/auth/me",
             );
-            response.data.avatarUrl = "/octockup.png";
             return response.data;
           },
           refreshToken: async (_refreshToken, axiosInstance) => {
