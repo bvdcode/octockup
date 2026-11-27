@@ -3,7 +3,6 @@ import {
   Alert,
   Stack,
   Button,
-  Snackbar,
   Typography,
   CircularProgress,
 } from "@mui/material";
@@ -16,7 +15,8 @@ import { useWizardForm } from "../hooks/useWizardForm";
 import { useModuleTest } from "../hooks/useModuleTest";
 import { ParametersForm } from "./wizard/ParametersForm";
 import { DirectoryBrowser } from "./wizard/DirectoryBrowser";
-import { ArrowBack, CheckCircle } from "@mui/icons-material";
+import { ArrowBack } from "@mui/icons-material";
+import { useSnackbar } from "notistack";
 import { useModuleMetadata } from "../hooks/useModuleMetadata";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ModuleDestination } from "../types/api";
@@ -68,6 +68,7 @@ export default function BackupModuleWizard({
   backRoute,
 }: BackupModuleWizardProps) {
   const { t } = useTranslation();
+  const { enqueueSnackbar } = useSnackbar();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
@@ -170,7 +171,6 @@ export default function BackupModuleWizard({
 
   const [creating, setCreating] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [existingTags, setExistingTags] = useState<string[]>([]);
 
   // Initialize params when metadata loads
@@ -322,10 +322,11 @@ export default function BackupModuleWizard({
         refetchType: "all",
       });
       resetUnsavedChanges();
-      setShowSuccessToast(true);
-      setTimeout(() => {
-        navigate(backRoute);
-      }, 1000);
+      enqueueSnackbar(
+        t(moduleType === "source" ? "wizard.sourceCreatedSuccess" : "wizard.storageCreatedSuccess"),
+        { variant: "success" },
+      );
+      navigate(backRoute);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setSubmitError(msg || t("wizard.createError"));
@@ -434,21 +435,6 @@ export default function BackupModuleWizard({
           </Box>
         )}
       </Stack>
-
-      <Snackbar
-        open={showSuccessToast}
-        autoHideDuration={3000}
-        onClose={() => setShowSuccessToast(false)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
-        <Alert severity="success" icon={<CheckCircle />} sx={{ width: "100%" }}>
-          {t(
-            moduleType === "source"
-              ? "wizard.sourceCreatedSuccess"
-              : "wizard.storageCreatedSuccess",
-          )}
-        </Alert>
-      </Snackbar>
     </>
   );
 }
