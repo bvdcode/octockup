@@ -7,12 +7,12 @@ import {
   CircularProgress,
   Divider,
   IconButton,
-  Snackbar,
   Stack,
   Tooltip,
   Typography,
 } from "@mui/material";
 import { confirm } from "material-ui-confirm";
+import { useSnackbar } from "notistack";
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
@@ -51,9 +51,9 @@ export function ModuleCatalogPage({
   emptyKey,
 }: ModuleCatalogPageProps) {
   const { t } = useTranslation();
+  const { enqueueSnackbar } = useSnackbar();
   const navigate = useNavigate();
   const catalog = useModuleCatalog(destination, providerType);
-  const [snackbar, setSnackbar] = useState<string | null>(null);
   const [editing, setEditing] = useState<Module | null>(null);
   const editingProvider = catalog.providers.find((provider) => provider.id === editing?.backupModuleId);
   const key = (suffix: string) => `${translationPrefix}.${suffix}`;
@@ -63,7 +63,7 @@ export function ModuleCatalogPage({
       await catalog.renameModule(moduleId, newTag);
     } catch (caughtError) {
       if (caughtError instanceof Error) {
-        setSnackbar(getApiErrorMessage(caughtError, t(key("renameFailed"))));
+        enqueueSnackbar(getApiErrorMessage(caughtError, t(key("renameFailed"))), { variant: "error" });
       }
       throw caughtError;
     }
@@ -151,12 +151,6 @@ export function ModuleCatalogPage({
       {editing && editingProvider && (
         <EditModuleDialog key={editing.id} module={editing} provider={editingProvider} onClose={() => setEditing(null)} />
       )}
-      <Snackbar
-        open={snackbar !== null}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar(null)}
-        message={snackbar}
-      />
     </Stack>
   );
 }

@@ -1,6 +1,7 @@
 import { cleanup, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
+import { SnackbarProvider } from "notistack";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createTestQueryClient,
@@ -183,7 +184,10 @@ describe("SnapshotsPage", () => {
       });
     const user = userEvent.setup();
 
-    renderWithQueryClient(<SnapshotsPage />, createTestQueryClient());
+    renderWithQueryClient(
+      <SnackbarProvider><SnapshotsPage /></SnackbarProvider>,
+      createTestQueryClient(),
+    );
 
     const options = await screen.findAllByRole("button", {
       name: "snapshots.downloadOptions",

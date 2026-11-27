@@ -7,7 +7,6 @@ import {
   Typography,
   CardContent,
   CircularProgress,
-  Snackbar,
   Chip,
   Tooltip,
 } from "@mui/material";
@@ -25,6 +24,7 @@ import { useSnapshotsApi } from "../api/snapshotsApi";
 import type { SnapshotDto } from "../types/api";
 import { useAuthStore } from "@bvdcode/react-kit";
 import { confirm } from "material-ui-confirm";
+import { useSnackbar } from "notistack";
 import SnapshotActionsCell from "../components/snapshots/SnapshotActionsCell";
 import { getApiErrorMessage } from "../utils/apiError";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -34,6 +34,7 @@ import { deletionRefreshInterval, useDeletionUpdates } from "../hooks/useDeletio
 
 export default function SnapshotsPage() {
   const { t } = useTranslation();
+  const { enqueueSnackbar } = useSnackbar();
   const navigate = useNavigate();
   const { backupId } = useParams<{ backupId: string }>();
   const snapshotsApi = useSnapshotsApi();
@@ -55,7 +56,6 @@ export default function SnapshotsPage() {
   });
   const snapshots = snapshotsQuery.data ?? [];
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
-  const [downloadRequested, setDownloadRequested] = useState(false);
   const [deletingIds, setDeletingIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -78,7 +78,7 @@ export default function SnapshotsPage() {
   };
 
   const handleDownload = (snapshotId: string, validate: boolean) => {
-    setDownloadRequested(true);
+    enqueueSnackbar(t("snapshots.downloadRequested"));
     const link = document.createElement("a");
     link.href = createSnapshotDownloadUrl(snapshotId, validate);
     link.download = "";
@@ -220,12 +220,6 @@ export default function SnapshotsPage() {
 
   return (
     <Stack spacing={3} display="flex" flexDirection="column" flex={1}>
-      <Snackbar
-        open={downloadRequested}
-        autoHideDuration={6000}
-        onClose={() => setDownloadRequested(false)}
-        message={t("snapshots.downloadRequested")}
-      />
       {loadError && (
         <Alert severity="error">
           {getApiErrorMessage(loadError, t("snapshots.loadFailed"))}
