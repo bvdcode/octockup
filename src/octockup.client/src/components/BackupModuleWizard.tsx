@@ -343,6 +343,8 @@ export default function BackupModuleWizard({
     navigate(backRoute);
   };
 
+  const hasDirectoryBrowser = moduleMeta?.requiredParameters.includes("path");
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" p={4}>
@@ -369,72 +371,77 @@ export default function BackupModuleWizard({
   }
 
   return (
-    <>
-      <Stack spacing={3}>
-        <Stack direction="row" spacing={2} alignItems="center">
-          <Button
-            variant="outlined"
-            color="inherit"
-            startIcon={<ArrowBack />}
-            onClick={handleBack}
-            disabled={creating}
-          >
-            {t("common.back")}
-          </Button>
-          <Typography variant="h5">
-            {t(
-              moduleType === "source"
-                ? "sources.newSource"
-                : "storages.newStorage",
-            )}
-          </Typography>
-        </Stack>
-        {moduleMeta && (
-          <Box component="form" onSubmit={handleSubmit}>
-            <Stack spacing={3}>
-              <ModuleHeader moduleMeta={moduleMeta} />
-
-              <ParametersForm
-                key={moduleMeta.id}
-                moduleMeta={moduleMeta}
-                params={params}
-                privateKeyPassphrase={privateKeyPassphrase}
-                tag={tag}
-                onParamChange={handleParamChange}
-                onPrivateKeyPassphraseChange={
-                  handlePrivateKeyPassphraseChange
-                }
-                onTagChange={updateTag}
-                onParamsPaste={handleParamsPaste}
-                disabled={creating}
-              />
-
-              {moduleMeta.requiredParameters.includes("path") && (
-                <DirectoryBrowser
-                  browserPath={browser.browserPath}
-                  browserDirs={browser.browserDirs}
-                  browserLoading={browser.browserLoading}
-                  onNavigateToRoot={handleNavigateToRoot}
-                  onNavigateUp={handleNavigateUp}
-                  onNavigateToDir={handleNavigateToDir}
-                  disabled={creating}
-                />
-              )}
-
-              {submitError && <Alert severity="error">{submitError}</Alert>}
-
-              <TestActions
-                testLoading={test.testLoading}
-                testMessage={test.testMessage}
-                testError={test.testError}
-                creating={creating}
-                moduleType={moduleType}
-                onTest={test.runTest}
-              />
-            </Stack>
-          </Box>
-        )}
+    <Stack
+      spacing={3}
+      flex={hasDirectoryBrowser ? 1 : undefined}
+      sx={(theme) => hasDirectoryBrowser ? { [theme.breakpoints.down(960)]: { pb: 8 } } : {}}
+    >
+      <Stack direction="row" spacing={2} alignItems="center">
+        <Button
+          variant="outlined"
+          color="inherit"
+          startIcon={<ArrowBack />}
+          onClick={handleBack}
+          disabled={creating}
+        >
+          {t("common.back")}
+        </Button>
+        <Typography variant="h5">
+          {t(
+            moduleType === "source"
+              ? "sources.newSource"
+              : "storages.newStorage",
+          )}
+        </Typography>
       </Stack>
-    </>
+      {moduleMeta && (
+        <Stack
+          component="form"
+          spacing={3}
+          flex={hasDirectoryBrowser ? 1 : undefined}
+          onSubmit={handleSubmit}
+        >
+          <ModuleHeader moduleMeta={moduleMeta} />
+
+          <ParametersForm
+            key={moduleMeta.id}
+            moduleMeta={moduleMeta}
+            params={params}
+            privateKeyPassphrase={privateKeyPassphrase}
+            tag={tag}
+            onParamChange={handleParamChange}
+            onPrivateKeyPassphraseChange={
+              handlePrivateKeyPassphraseChange
+            }
+            onTagChange={updateTag}
+            onParamsPaste={handleParamsPaste}
+            disabled={creating}
+          />
+
+          {hasDirectoryBrowser && (
+            <DirectoryBrowser
+              browserPath={browser.browserPath}
+              browserDirs={browser.browserDirs}
+              browserLoading={browser.browserLoading}
+              onNavigateToRoot={handleNavigateToRoot}
+              onNavigateUp={handleNavigateUp}
+              onNavigateToDir={handleNavigateToDir}
+              disabled={creating}
+            />
+          )}
+
+          {submitError && <Alert severity="error">{submitError}</Alert>}
+
+          <TestActions
+            testLoading={test.testLoading}
+            testMessage={test.testMessage}
+            testError={test.testError}
+            creating={creating}
+            moduleType={moduleType}
+            onTest={test.runTest}
+          />
+        </Stack>
+      )}
+    </Stack>
   );
 }

@@ -217,6 +217,7 @@
     "directoryBrowser": "Браузер папок",
     "up": "Вверх",
     "noSubdirectories": "Нет подпапок",
+    "openRootDirectory": "Открыть корневую папку",
     "clickToLoad": "Нажмите на иконку домика, чтобы загрузить корневые папки",
     "loadRootDirectories": "Загрузить корневые папки",
     "creating": "Создание...",

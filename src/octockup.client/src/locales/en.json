@@ -193,6 +193,7 @@
     "directoryBrowser": "Directory Browser",
     "up": "Up",
     "noSubdirectories": "No subdirectories",
+    "openRootDirectory": "Open root directory",
     "clickToLoad": "Click Home button above to load root directories",
     "loadRootDirectories": "Load Root Directories",
     "creating": "Creating...",
