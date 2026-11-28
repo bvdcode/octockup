@@ -37,37 +37,43 @@ export function DirectoryBrowser({
   const { t } = useTranslation();
 
   return (
-    <Paper sx={{ p: 2, maxHeight: 300, overflow: "auto" }}>
-      <Stack spacing={1}>
-        <Stack
-          direction="row"
-          alignItems="center"
-          justifyContent="space-between"
-        >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-            <IconButton
-              size="small"
-              onClick={onNavigateToRoot}
-              disabled={disabled}
+    <Paper sx={{ display: "flex", flexDirection: "column", flex: 1, gap: 1, p: 2 }}>
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+      >
+        <Box display="flex" alignItems="center" gap={0.5} minWidth={0}>
+          <IconButton
+            size="small"
+            aria-label={t("wizard.openRootDirectory")}
+            onClick={onNavigateToRoot}
+            disabled={disabled}
+          >
+            <Home fontSize="small" />
+          </IconButton>
+          <ArrowRight fontSize="small" />
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ overflowWrap: "anywhere" }}
             >
-              <Home fontSize="small" />
-            </IconButton>
-            <ArrowRight fontSize="small" />
-            <Typography variant="caption" color="text.secondary">
-              {browserPath || "/"}
-            </Typography>
-          </Box>
-          {browserPath && (
-            <Button
-              size="small"
-              startIcon={<ArrowUpward />}
-              onClick={onNavigateUp}
-              disabled={disabled}
-            >
-              {t("wizard.up")}
-            </Button>
-          )}
-        </Stack>
+            {browserPath || "/"}
+          </Typography>
+        </Box>
+        {browserPath && (
+          <Button
+            size="small"
+            color="inherit"
+            startIcon={<ArrowUpward />}
+            onClick={onNavigateUp}
+            disabled={disabled}
+          >
+            {t("wizard.up")}
+          </Button>
+        )}
+      </Stack>
+      <Box flex={1} sx={{ contain: "size", minHeight: (theme) => theme.spacing(16), overflowY: "auto" }}>
         {browserLoading ? (
           <Box display="flex" justifyContent="center" p={2}>
             <CircularProgress size={24} />
@@ -94,13 +100,13 @@ export function DirectoryBrowser({
                   <ListItemIcon sx={{ minWidth: 36 }}>
                     <Folder />
                   </ListItemIcon>
-                  <ListItemText primary={dir} />
+                  <ListItemText primary={dir} sx={{ overflowWrap: "anywhere" }} />
                 </ListItemButton>
               </ListItem>
             ))}
           </List>
         )}
-      </Stack>
+      </Box>
     </Paper>
   );
 }
